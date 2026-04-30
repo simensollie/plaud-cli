@@ -92,9 +92,9 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - Sentinel: `ErrNotLoggedIn`.
 
 **Done when:**
-- [ ] All four tests green
-- [ ] Path resolution works in tests via `t.Setenv("XDG_CONFIG_HOME", t.TempDir())`
-- [ ] Tokens never appear in any error string returned by this package
+- [x] All four tests green (plus two extras: idempotent Delete; token-not-in-error-strings)
+- [x] Path resolution works in tests via `t.Setenv("XDG_CONFIG_HOME", t.TempDir())`
+- [x] Tokens never appear in any error string returned by this package
 
 ---
 
