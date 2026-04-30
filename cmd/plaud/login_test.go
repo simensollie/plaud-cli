@@ -13,6 +13,17 @@ import (
 	"github.com/simensollie/plaud-cli/internal/auth"
 )
 
+// setTempConfig points credentials lookup at a per-test temp dir on every
+// supported OS. Tests that exercise auth.Save / auth.Load must call this or
+// the Save will write to the user's real config dir on Windows (which reads
+// APPDATA, not XDG_CONFIG_HOME).
+func setTempConfig(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("APPDATA", dir)
+}
+
 // fakePlaud serves the two OTP endpoints with configurable responses. Test
 // helper that keeps each test focused on its own assertions instead of HTTP
 // scaffolding.
@@ -59,7 +70,7 @@ func runLoginCmd(t *testing.T, srvURL, stdin string) (string, error) {
 //
 // Spec: specs/0001-auth-and-list/ F-01, F-02, F-04, F-05
 func TestLogin_F01_F02_HappyPath(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setTempConfig(t)
 	t.Setenv("LANG", "nb_NO.UTF-8")
 
 	const accessToken = "eyJ-real-access-token"
@@ -98,7 +109,7 @@ func TestLogin_F01_F02_HappyPath(t *testing.T) {
 //
 // Spec: specs/0001-auth-and-list/ F-02
 func TestLogin_F02_BadCodeExitsNonZero(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setTempConfig(t)
 
 	fp := &fakePlaud{
 		otpSendBody:  `{"status":0,"token":"exchange-abc"}`,
@@ -123,7 +134,7 @@ func TestLogin_F02_BadCodeExitsNonZero(t *testing.T) {
 //
 // Spec: specs/0001-auth-and-list/ F-02 (set-password edge case)
 func TestLogin_F02_PasswordNotSetIsActionableMessage(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setTempConfig(t)
 
 	fp := &fakePlaud{
 		otpSendBody:  `{"status":0,"token":"exchange-abc"}`,
@@ -150,7 +161,7 @@ func TestLogin_F02_PasswordNotSetIsActionableMessage(t *testing.T) {
 //
 // Spec: specs/0001-auth-and-list/ F-09
 func TestLogin_F09_TokenNeverInOutput(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setTempConfig(t)
 
 	const secret = "tok-DO-NOT-LEAK-eyJ-9999"
 	fp := &fakePlaud{
