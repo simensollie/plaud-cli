@@ -12,7 +12,9 @@ A small, single-binary CLI for archiving recordings, transcripts, and summaries 
 
 ## Status
 
-**v0.1: in development.** Current scope is login + list. Download, sync, and prompt composition come in later versions. See [`specs/`](./specs/) for the roadmap and active spec.
+**v0.1.0 released (2026-05-01).** Current scope is `login`, `list`, and `logout`. Download, sync, and prompt composition come in later versions. See [`specs/`](./specs/) for the roadmap and active spec.
+
+Releases: https://github.com/simensollie/plaud-cli/releases
 
 ## Why
 
@@ -22,7 +24,18 @@ The official partner Developer Platform (`docs.plaud.ai`) is for B2B integration
 
 ## Install
 
-Not yet released. Once v0.1 ships, binaries will be available on the [Releases](https://github.com/simensollie/plaud-cli/releases) page. For now:
+Download the archive for your platform from the [Releases](https://github.com/simensollie/plaud-cli/releases) page, extract, and put `plaud` on your `PATH`.
+
+For example, on Linux amd64:
+
+```bash
+curl -fsSL -o plaud.tar.gz https://github.com/simensollie/plaud-cli/releases/download/v0.1.0/plaud-cli_0.1.0_linux_amd64.tar.gz
+tar -xzf plaud.tar.gz plaud
+mv plaud ~/.local/bin/
+plaud --version
+```
+
+Or build from source:
 
 ```bash
 git clone https://github.com/simensollie/plaud-cli
@@ -31,13 +44,21 @@ go build ./cmd/plaud
 ./plaud --version
 ```
 
-## Usage (planned for v0.1)
+## Usage
 
 ```bash
-plaud login          # interactive: region, email, OTP code
-plaud list           # show all recordings on your account
-plaud logout         # delete stored credentials
+plaud login                      # interactive: region, email, OTP code
+plaud login --token <jwt> \      # alternative: paste a JWT from web.plaud.ai's localStorage
+            --region eu \        # (use this if your account uses Apple/Google SSO
+            --email <addr>       #  and OTP login is unavailable)
+plaud list                       # show all recordings on your account, newest first
+plaud logout                     # delete stored credentials
 ```
+
+Where credentials are kept:
+
+- POSIX: `${XDG_CONFIG_HOME:-~/.config}/plaud/credentials.json` (mode `0600`)
+- Windows: `%APPDATA%\plaud\credentials.json`
 
 ## Contributing
 

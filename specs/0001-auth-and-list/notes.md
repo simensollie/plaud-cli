@@ -6,6 +6,24 @@ For why this file exists and what to put in it, see `specs/README.md`.
 
 ---
 
+## 2026-05-01 — v0.1.0 released
+
+Tag `v0.1.0` pushed; GoReleaser produced 6 archives (linux/darwin/windows × amd64/arm64) plus `checksums.txt` at https://github.com/simensollie/plaud-cli/releases/tag/v0.1.0.
+
+Verified post-release:
+- Downloaded `plaud-cli_0.1.0_linux_amd64.tar.gz` from the release.
+- `sha256sum -c checksums.txt --ignore-missing` passes.
+- Extracted binary reports `plaud version 0.1.0`.
+- `plaud login --token` + `plaud list` against the real account renders 36 recordings correctly. Same output as the local build, so the release pipeline is faithful.
+
+Pending before the spec moves to `Status: Done`:
+1. **Cross-platform manual smoke on macOS and Windows.** Binaries exist and CI exercises both via `go test -race ./...`, but a real `login → list → logout` round-trip on each target is not yet performed. Acceptable to leave open for now; first external user on either platform completes this.
+2. **OTP-flow smoke.** Still blocked on the user's Plaud account password not being settable via web (support ticket open). The OTP code path has full unit-test coverage. When the support ticket resolves, smoke is one `plaud login` away.
+
+These two items aside, v0.1.0 is functionally complete: any user with a Plaud.ai bearer JWT can install, log in via the `--token` paste path, and list their recordings.
+
+---
+
 ## 2026-05-01 — First real-API smoke. Bearer auth confirmed. Times are milliseconds.
 
 Phase 6 manual smoke against the user's real EU account succeeded.

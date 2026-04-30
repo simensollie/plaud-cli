@@ -1,10 +1,11 @@
 # Spec 0001: Authentication and List
 
-**Status:** Active
+**Status:** Active (v0.1.0 released 2026-05-01; awaiting OTP-flow smoke and cross-platform smoke before Done)
 **Created:** 2026-04-30
-**Updated:** 2026-04-30
+**Updated:** 2026-05-01
 **Owner:** @simensollie
 **Target version:** v0.1
+**Released:** v0.1.0 (https://github.com/simensollie/plaud-cli/releases/tag/v0.1.0)
 
 A small, single-binary CLI that authenticates against your Plaud.ai account and lists your recordings. **Nothing more in v0.1.** Download, sync, prompt composition, etc. live in their own future specs and are explicitly out of scope here.
 

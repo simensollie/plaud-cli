@@ -147,4 +147,4 @@ Open a PR with the spec only (no code). Get sign-off. Then implement.
 
 | ID | Title | Status | Target version |
 |---|---|---|---|
-| 0001 | Authentication and List | Active | v0.1 |
+| 0001 | Authentication and List | Active (v0.1.0 released 2026-05-01; cross-platform + OTP smoke pending) | v0.1 |
