@@ -49,18 +49,26 @@ The active spec lists what is in scope. Nothing else ships. No half-finished fea
 ```
 plaud-cli/
 ├── CLAUDE.md                       # this file
-├── README.md                       # user-facing (added in v0.1 final)
+├── README.md                       # one-screen orient + install + usage
 ├── go.mod, go.sum                  # added when first Go code lands
-├── specs/
+├── specs/                          # design (the WHY and WHAT)
 │   ├── README.md                   # how spec-driven works here
 │   ├── _template/                  # copy this when starting a new spec
-│   │   ├── spec.md
-│   │   ├── plan.md
-│   │   └── notes.md
-│   └── 0001-auth-and-list/
-│       ├── spec.md                 # the spec (outcomes, FRs, acceptance)
+│   └── NNNN-<slug>/
+│       ├── spec.md                 # outcomes, FRs, acceptance
 │       ├── plan.md                 # implementation phases, TDD-friendly
 │       └── notes.md                # captured facts, decisions, gotchas
+├── docs/                           # documentation (the HOW)
+│   ├── README.md                   # docs index
+│   ├── user/                       # user-facing prose
+│   │   ├── install.md
+│   │   ├── getting-started.md
+│   │   ├── commands/<one-per-cmd>.md
+│   │   └── troubleshooting.md
+│   └── technical/                  # contributor-facing prose
+│       ├── architecture.md
+│       ├── plaud-api.md            # what we know about the (undocumented) Plaud API
+│       └── adding-a-spec.md
 ├── cmd/plaud/                      # CLI entry, subcommand wiring
 ├── internal/                       # implementation
 │   ├── api/                        # Plaud HTTP client
@@ -70,6 +78,13 @@ plaud-cli/
 ```
 
 `internal/` only. No `pkg/` exported library surface until v1.0+ (and only if there is real demand).
+
+**Three layers, three audiences:**
+- `specs/` — for the author of the change. Outcomes, FRs, acceptance.
+- `docs/` — for the user (in `docs/user/`) and the next contributor (in `docs/technical/`). Prose, examples, error decoders.
+- code (`cmd/`, `internal/`) — for the machine and reviewers.
+
+Each spec's "Done" criteria include updates to `docs/` if user-visible behavior changed.
 
 ---
 
@@ -164,7 +179,11 @@ A spec moves from `Active` to `Done` when:
 4. Every phase checkbox in `plan.md` is ticked.
 5. The spec's acceptance criteria walk-through passes on macOS, Linux, and Windows (or the spec explicitly limits platforms).
 6. `notes.md` is current. Anything surprising is captured.
-7. The spec's `Status` field is set to `Done <YYYY-MM-DD>`. After this point the spec is immutable; new work goes in a new spec.
+7. **`docs/` is updated:**
+   - **User docs:** new or changed CLI surface gets a `docs/user/commands/<cmd>.md` page or update; new error states get an entry in `docs/user/troubleshooting.md`; install / first-run flow updates in `docs/user/getting-started.md` if relevant.
+   - **Technical docs:** new internal packages get a section in `docs/technical/architecture.md`; new Plaud API endpoints captured in `docs/technical/plaud-api.md`; cross-cutting patterns documented where they fit.
+   - Updates land in the same PR as the code, not a follow-up. A doc-less feature is incomplete.
+8. The spec's `Status` field is set to `Done <YYYY-MM-DD>`. After this point the spec is immutable; new work goes in a new spec.
 
 ---
 

@@ -60,11 +60,17 @@ Where credentials are kept:
 - POSIX: `${XDG_CONFIG_HOME:-~/.config}/plaud/credentials.json` (mode `0600`)
 - Windows: `%APPDATA%\plaud\credentials.json`
 
+## Documentation
+
+- [`docs/user/`](./docs/user/) — install, getting started, command reference, troubleshooting.
+- [`docs/technical/`](./docs/technical/) — architecture, the (undocumented) Plaud API knowledge, contributor pointers.
+- [`docs/README.md`](./docs/README.md) — the docs index.
+
 ## Contributing
 
 This repo is spec-driven, test-driven, and "fail fast, fail often". See [`CLAUDE.md`](./CLAUDE.md) for principles, conventions, and the development workflow. See [`specs/README.md`](./specs/README.md) for how to read or write a spec.
 
-In short: no code without a spec, every functional requirement has a test that cites its FR ID, and tests come before implementation.
+In short: no code without a spec, every functional requirement has a test that cites its FR ID, tests come before implementation, and documentation in `docs/` ships in the same change as the code.
 
 ## License
 

@@ -66,3 +66,17 @@ The walk-through that proves the spec is done. Concrete, runnable, observable. T
 
 1. <step the user runs and what they observe>
 2. ...
+
+## 9. Documentation deliverables
+
+Per the project's definition of done (see `/CLAUDE.md`), every spec lands with documentation in the same set of changes as the code.
+
+| Audience | File(s) | What lands |
+|---|---|---|
+| User | `docs/user/commands/<cmd>.md` for each new or changed command | Purpose, syntax, example invocations, common errors and how to recover. |
+| User | `docs/user/troubleshooting.md` | New entries for any user-visible error states this spec introduces. |
+| User | `docs/user/getting-started.md` | Update if first-run flow changes. |
+| Technical | `docs/technical/architecture.md` | New internal packages, cross-cutting patterns, decisions worth surfacing. |
+| Technical | `docs/technical/plaud-api.md` | Any new Plaud API endpoint shapes confirmed by this spec. |
+
+If a row above does not apply, write "n/a — <one-sentence reason>" in this section. Empty deliverables get pushed back at review.

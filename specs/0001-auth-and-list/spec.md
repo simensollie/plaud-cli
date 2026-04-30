@@ -99,5 +99,21 @@ v0.1 is done when:
 1. A new user can run `plaud login`, complete the OTP flow against a real Plaud.ai account, and see their token persisted at the documented path with mode `0600`.
 2. `plaud list` prints every recording on that account as a readable table, with correct titles, dates, and durations.
 3. Steps 1 and 2 work on macOS, Linux, and Windows.
-4. The two unit-test suites (API client, credentials) pass in CI.
+4. Unit-test suites (API client, credentials, command wiring) pass in CI.
 5. A binary built from `main` is downloadable from a GitHub release and `plaud --version` reports the correct version.
+
+## 9. Documentation deliverables
+
+Backfilled retroactively when the project introduced `docs/` as a first-class concept. Listed here so the spec is consistent with newer specs that use the same template section.
+
+| Audience | File(s) | What landed |
+|---|---|---|
+| User | `docs/user/install.md` | Release-binary and source-build install paths for Linux/macOS/Windows. |
+| User | `docs/user/getting-started.md` | First-time walkthrough covering both interactive OTP and `--token` paste paths. |
+| User | `docs/user/commands/login.md` | Full reference for `plaud login`, including SSO-without-password recovery. |
+| User | `docs/user/commands/list.md` | Full reference for `plaud list`, including known quirks (UTC dates, Norwegian title rendering). |
+| User | `docs/user/commands/logout.md` | Full reference for `plaud logout`. |
+| User | `docs/user/troubleshooting.md` | Errors users may hit and how to recover. Mirrors error sentinels in `internal/api` and `internal/auth`. |
+| Technical | `docs/technical/architecture.md` | Top-level layout, package responsibilities, cross-cutting principles (TDD, fail-fast, options pattern, idempotency, no-tokens-in-logs). |
+| Technical | `docs/technical/plaud-api.md` | Endpoint shapes confirmed empirically: hosts, auth header, OTP three-step flow, list endpoint, response envelope, time fields are milliseconds. |
+| Technical | `docs/technical/adding-a-spec.md` | Pointer to `specs/README.md` plus contributor-facing context. |
