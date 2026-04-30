@@ -6,6 +6,14 @@ For why this file exists and what to put in it, see `specs/README.md`.
 
 ---
 
+## 2026-04-30 — Phase 0 complete; Node 20 deprecation deferred
+
+Phase 0 done. CI green on Linux + macOS + Windows + lint. F-11 disclaimer tested and shipping in `--help` and README + NOTICE.
+
+Deferred: GitHub Actions emitted a soft deprecation warning that `actions/checkout@v4` and `actions/setup-go@v5` use Node.js 20, which becomes mandatory Node.js 24 on 2026-06-02. Not blocking; we will revisit before that date or when v5+ of those actions ship.
+
+---
+
 ## 2026-04-30 — Binary name and trademark posture
 
 Decided: binary is `plaud`. Repo stays `plaud-cli`.

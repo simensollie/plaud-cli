@@ -22,13 +22,13 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - `cmd/plaud/main.go` (Cobra root command with `Long` containing the disclaimer; `--version` only)
 
 **Done when:**
-- [ ] F-11 test in red, then green
-- [ ] `go build ./...` clean
-- [ ] `go vet ./...` clean
-- [ ] `gofmt -l .` empty
-- [ ] CI workflow green on a fresh push
-- [ ] `./plaud --version` prints a version
-- [ ] `./plaud --help` includes "unofficial community tool, not affiliated with PLAUD LLC"
+- [x] F-11 test in red, then green
+- [x] `go build ./...` clean
+- [x] `go vet ./...` clean
+- [x] `gofmt -l .` empty
+- [x] CI workflow green on a fresh push
+- [x] `./plaud --version` prints a version
+- [x] `./plaud --help` includes "unofficial community tool, not affiliated with PLAUD LLC"
 
 ---
 
