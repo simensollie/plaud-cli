@@ -53,20 +53,27 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 
 ## Phase 2: OTP send and verify
 
-**Outcome:** Given a region + email, the API client can request an OTP. Given email + code, it exchanges them for a bearer token.
+**Outcome:** Three pre-auth package-level functions that drive the captured email + OTP flow:
+1. `DiscoverRegionAPI` returns the regional API host for an email (region auto-discovery; informational in v0.1, used by Phase 4 only if user picks unknown region).
+2. `SendOTP` requests an OTP code be emailed and returns a short-lived exchange token.
+3. `VerifyOTP` redeems the exchange token + 6-digit code, returning the long-lived bearer JWT.
+4. `VerifyOTP` surfaces `ErrPasswordNotSet` when the account has no password (otp-login returned `set_password_token`).
 
 **Failing tests first (red):**
-- `internal/api/auth_test.go::TestAuth_F02_SendOTPPostsCorrectBody` — `httptest.NewServer` asserts the request method, path, headers, and JSON body match what the reverse-engineered API expects (verified in `notes.md`).
-- `internal/api/auth_test.go::TestAuth_F02_VerifyOTPReturnsToken` — server returns `{"token":"eyJ..."}`, client returns the same string.
-- `internal/api/auth_test.go::TestAuth_F02_VerifyOTPSurfaces401AsTypedError` — server returns 401, client returns `ErrInvalidOTP` so callers can distinguish.
+- `internal/api/auth_test.go::TestDiscoverRegionAPI_F02_PostsCorrectBodyAndReturnsHost` — `httptest.NewServer` asserts method `POST`, path `/auth/otp-send-code`, JSON body `{username, user_area}`. Server returns `{status:0, data:{domains:{api: srv.URL}}}`. Function returns the host.
+- `internal/api/auth_test.go::TestSendOTP_F02_PostsCorrectBodyAndReturnsExchangeToken` — POST to `/auth/otp-send-code`, asserts body shape, server returns `{status:0, token:"exchange-..."}`, function returns `"exchange-..."`.
+- `internal/api/auth_test.go::TestVerifyOTP_F02_ReturnsAccessToken` — POST to `/auth/otp-login`, asserts body fields `{token, code, user_area, require_set_password, team_enabled}`, server returns `{status:0, access_token:"jwt...", token_type:"bearer", has_password:true, is_new_user:false}`, function returns `"jwt..."`.
+- `internal/api/auth_test.go::TestVerifyOTP_F02_PasswordNotSetReturnsTypedError` — server returns `{status:0, set_password_token:"...", access_token:"...", has_password:false}`, function returns `ErrPasswordNotSet` (we conservatively block here rather than trust an access_token before password set).
+- `internal/api/auth_test.go::TestVerifyOTP_F02_BadCodeReturnsTypedError` — server returns `{status:1234, msg:"invalid code"}` (Plaud's pattern: HTTP 200 with non-zero body status), function returns `ErrInvalidOTP`.
 
 **Code (green):**
-- `internal/api/auth.go` — `SendOTP(ctx, email) error`, `VerifyOTP(ctx, email, code) (token string, err error)`.
-- Sentinel errors: `ErrInvalidOTP`, `ErrEmailUnknown`.
+- `internal/api/auth.go` — package-level `DiscoverRegionAPI`, `SendOTP`, `VerifyOTP`. `AuthOption` (`WithAuthHTTPClient`) for tests. `GlobalAPIBase` constant `https://api.plaud.ai`. Common request envelope helper that decodes Plaud's `{status, msg, ...}` wrapper and surfaces non-zero `status` as a typed error.
+- Sentinel errors: `ErrInvalidOTP`, `ErrPasswordNotSet`, `ErrAPIError` (wraps `status` + `msg` for unrecognized codes).
 
 **Done when:**
-- [ ] All three tests in red, then green
-- [ ] Endpoint paths and request shapes captured in `notes.md` with the date and the source repo / capture they came from
+- [x] All five tests in red, then green
+- [x] No real network calls in tests
+- [ ] Real-account smoke (manual): `DiscoverRegionAPI` against api.plaud.ai resolves to `api-euc1.plaud.ai` for an EU email. (Defer to Phase 4 wiring.)
 
 ---
 
