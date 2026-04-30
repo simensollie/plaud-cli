@@ -112,9 +112,9 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - Wire into `cmd/plaud/main.go`.
 
 **Done when:**
-- [ ] All three tests green
-- [ ] Manual smoke: real `plaud login` against a live EU account writes a `credentials.json` and the second smoke phase (Phase 6) can read it
-- [ ] Error from invalid code is human-readable, no Go stack trace
+- [x] All three tests green (plus bonus: password-not-set actionable message; detectUserArea table test)
+- [ ] Manual smoke: real `plaud login` against a live EU account writes a `credentials.json` and the second smoke phase (Phase 6) can read it. **Blocked: account currently cannot set a password via web (support ticket open). Smoke deferred until either password-set works or we surface this through Phase 5 `--token` paste, which then validates the saved-credentials path with a real bearer token.**
+- [x] Error from invalid code is human-readable, no Go stack trace
 
 ---
 

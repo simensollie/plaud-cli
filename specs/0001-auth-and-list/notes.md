@@ -6,6 +6,18 @@ For why this file exists and what to put in it, see `specs/README.md`.
 
 ---
 
+## 2026-05-01 — Phase 4 OTP-login smoke blocked on web "set password"
+
+User's existing Apple-SSO Plaud account does not have a password set. The web "Set password" UI does not appear to work for this account; user has filed a support ticket with Plaud.
+
+Implication: we cannot manually smoke `plaud login` (the OTP path) end-to-end yet, because `otp-login` would return `set_password_token` for this account and our CLI would correctly stop with `ErrPasswordNotSet`. Phase 4 ships with full unit test coverage but the real-account smoke is deferred.
+
+Workaround for the rest of v0.1 development: implement Phase 5 (`plaud login --token <jwt>`) next, then use a JWT pasted from the browser's localStorage to test Phases 6-7 against the real account. This validates everything except the OTP exchange itself, which the unit tests already cover at the request/response shape level.
+
+If the support ticket resolves before v0.1 ships, do the OTP smoke then. If not, document the workaround in the README's troubleshooting section and proceed.
+
+---
+
 ## 2026-05-01 — OTP flow captured (full walkthrough from new-account create)
 
 User captured a second HAR (`create.web.plaud.ai.har`, gitignored) covering an email + OTP login and the post-login flow. This is the spec's target auth path. All endpoints + body shapes documented below.

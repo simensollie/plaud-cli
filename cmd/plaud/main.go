@@ -25,6 +25,9 @@ endorsed by, or sponsored by PLAUD LLC.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+
+	cmd.AddCommand(newLoginCmd())
+
 	return cmd
 }
 
