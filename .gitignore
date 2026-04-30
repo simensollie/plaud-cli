@@ -29,4 +29,7 @@ go.work.sum
 *.swp
 *~
 .DS_Store
-.claude/
+
+# Local Claude state, except shared repo skills
+.claude/*
+!.claude/skills/
