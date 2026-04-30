@@ -6,6 +6,20 @@ For why this file exists and what to put in it, see `specs/README.md`.
 
 ---
 
+## 2026-05-01 — First real-API smoke. Bearer auth confirmed. Times are milliseconds.
+
+Phase 6 manual smoke against the user's real EU account succeeded.
+
+**Bearer auth works on `/file/simple/web`.** `Authorization: bearer <jwt>` alone, no cookies, no `x-pld-user`, no `x-device-id`. We also did NOT need to send the web client's custom headers (`app-platform: web`, `edit-from: web`, etc.). The reverse-engineered prior-art assumption holds. Closes the bearer-vs-cookie open question that had been carried since the HAR analysis.
+
+**`start_time` and `duration` are milliseconds**, despite the lack of an `_ms` suffix. The earlier "field naming suggests epoch seconds" assumption was wrong. First clue: dates rendered as year 58,000+ (epoch×1000 interpreted as seconds) and durations of 310:00:00. Fixed by switching to `time.UnixMilli` and `time.Millisecond`. Test fixtures updated to use ms values.
+
+This is also a useful generalization for future phases (download, sync): when in doubt about a Plaud numeric time field, assume ms first. JavaScript-friendly convention; consistent with how the web client uses `new Date(ms)`.
+
+**Empirical finding worth noting for future specs:** the user's account has ~36 recordings; the API returned all of them in a single request at `limit=200`. No actual pagination was exercised against the live API on this run. The test still drives multi-page logic via `withListPageSize(3)`.
+
+---
+
 ## 2026-05-01 — Phase 4 OTP-login smoke blocked on web "set password"
 
 User's existing Apple-SSO Plaud account does not have a password set. The web "Set password" UI does not appear to work for this account; user has filed a support ticket with Plaud.

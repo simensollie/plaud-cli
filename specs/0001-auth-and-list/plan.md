@@ -153,9 +153,8 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - `cmd/plaud/list.go` — loads credentials, calls `List`, formats the table.
 
 **Done when:**
-- [ ] All five tests green
-- [ ] Golden file matches manual eyeballing on a real account
-- [ ] Manual smoke on a real account with at least 5 recordings produces a readable table
+- [x] Six tests green (api: paginates, shape, 401-typed; cmd: table output, not-logged-in, token-invalid no-retry)
+- [x] Manual smoke on a real account with 30+ recordings: bearer auth on `api-euc1.plaud.ai` works, `Authorization: bearer <jwt>` is sufficient (no cookies, no `x-pld-user`); table output is readable, sorted newest first; UTC dates ISO 8601, durations HH:MM:SS
 
 ---
 
