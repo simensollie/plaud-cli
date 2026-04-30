@@ -120,18 +120,20 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 
 ## Phase 5: `plaud login --token <jwt>` (paste path)
 
-**Outcome:** Users with blocked OTP email or SSO accounts can paste a token and skip the OTP exchange. Region prompt still applies.
+**Outcome:** Users with blocked OTP email or SSO accounts can paste a token and skip the OTP exchange. Region required; no prompts.
 
 **Failing tests first (red):**
-- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagSkipsOTP` — `--token eyJ... --region eu --email me@x` writes a credentials file without any HTTP traffic to the OTP endpoints (verify by recording `httptest` request count).
-- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRejectsEmpty` — empty token after `--token=` exits non-zero with a clear message.
+- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagSkipsOTP` — `--token eyJ... --region eu --email me@x` writes a credentials file without any HTTP traffic to the OTP endpoints (verified via `requestCount == 0`).
+- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRequiresRegion` — `--token x --email u@example.com` (no `--region`) exits non-zero.
+- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRejectsEmpty` — `--token=""` exits non-zero.
 
 **Code (green):**
-- Branch in `cmd/plaud/login.go` that bypasses OTP when `--token` is set.
+- `cmd/plaud/login.go`: `--token`, `--region`, `--email` flags; `runLoginToken` short-circuits the OTP flow.
+- OTP path also accepts `--region` and `--email` flag values to skip those prompts.
 
 **Done when:**
-- [ ] Both tests green
-- [ ] Manual smoke: pastes a token from `localStorage.tokenstr` and `plaud list` (next phase) works against it
+- [x] All three tests green
+- [ ] Manual smoke: paste a token from `localStorage.tokenstr` and confirm `auth.Load()` picks it up; full smoke against real `plaud list` happens in Phase 6.
 
 ---
 

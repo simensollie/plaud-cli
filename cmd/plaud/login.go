@@ -36,28 +36,63 @@ func newLoginCmd(opts ...loginOption) *cobra.Command {
 		opt(o)
 	}
 
+	var (
+		tokenFlag  string
+		regionFlag string
+		emailFlag  string
+	)
+
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Log in to Plaud.ai with email + OTP code",
 		Long: `Log in to your Plaud.ai account.
 
-The CLI prompts for region (us, eu, jp), email, and the 6-digit code Plaud
-emails to you. The bearer token is saved at the standard config location for
-your OS so subsequent commands can reuse it.
+By default the CLI prompts for region (us, eu, jp), email, and the 6-digit
+code Plaud emails to you. The bearer token is saved at the standard config
+location for your OS so subsequent commands can reuse it.
+
+For accounts where OTP login is unavailable (SSO-only with no password set,
+or corporate email blocking the OTP), pass a token directly:
+
+  plaud login --token <jwt> --region eu --email me@example.com
+
+Get the JWT from your browser's localStorage at https://web.plaud.ai
+(DevTools > Application > Local Storage; look for a 200-300 char value).
 
 This tool is unofficial and not affiliated with PLAUD LLC.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLogin(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), o)
+			return runLogin(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), o, loginInput{
+				token:  tokenFlag,
+				region: regionFlag,
+				email:  emailFlag,
+			})
 		},
 	}
+
+	cmd.Flags().StringVar(&tokenFlag, "token", "", "paste a bearer JWT instead of running the OTP flow (requires --region and --email)")
+	cmd.Flags().StringVar(&regionFlag, "region", "", "region: us, eu, or jp")
+	cmd.Flags().StringVar(&emailFlag, "email", "", "Plaud account email")
 	return cmd
 }
 
-func runLogin(ctx context.Context, stdin io.Reader, stdout io.Writer, o *loginCmdOpts) error {
+// loginInput carries the values the user supplied via flags. Empty fields
+// fall through to interactive prompts in the OTP path; the --token path
+// requires all three.
+type loginInput struct {
+	token  string
+	region string
+	email  string
+}
+
+func runLogin(ctx context.Context, stdin io.Reader, stdout io.Writer, o *loginCmdOpts, in loginInput) error {
+	if in.token != "" {
+		return runLoginToken(stdout, in)
+	}
+
 	scanner := bufio.NewScanner(stdin)
 
-	region, err := promptRegion(stdout, scanner)
+	region, err := resolveRegion(stdout, scanner, in.region)
 	if err != nil {
 		return err
 	}
@@ -66,9 +101,12 @@ func runLogin(ctx context.Context, stdin io.Reader, stdout io.Writer, o *loginCm
 		return fmt.Errorf("resolving region: %w", err)
 	}
 
-	email, err := promptLine(stdout, scanner, "Email: ")
-	if err != nil {
-		return err
+	email := strings.TrimSpace(in.email)
+	if email == "" {
+		email, err = promptLine(stdout, scanner, "Email: ")
+		if err != nil {
+			return err
+		}
 	}
 	if email == "" {
 		return errors.New("email is required")
@@ -114,7 +152,16 @@ func runLogin(ctx context.Context, stdin io.Reader, stdout io.Writer, o *loginCm
 	return nil
 }
 
-func promptRegion(out io.Writer, scanner *bufio.Scanner) (api.Region, error) {
+// resolveRegion prefers a pre-supplied flag value; otherwise prompts. In
+// either case the value is validated against api.BaseURL and lower-cased.
+func resolveRegion(out io.Writer, scanner *bufio.Scanner, fromFlag string) (api.Region, error) {
+	if fromFlag != "" {
+		r := api.Region(strings.ToLower(strings.TrimSpace(fromFlag)))
+		if _, err := api.BaseURL(r); err != nil {
+			return "", fmt.Errorf("invalid --region %q: must be one of us, eu, jp", fromFlag)
+		}
+		return r, nil
+	}
 	for {
 		val, err := promptLine(out, scanner, "Region (us/eu/jp): ")
 		if err != nil {
@@ -126,6 +173,39 @@ func promptRegion(out io.Writer, scanner *bufio.Scanner) (api.Region, error) {
 		}
 		fmt.Fprintf(out, "Unknown region %q. Please enter one of: us, eu, jp.\n", val)
 	}
+}
+
+// runLoginToken implements the --token paste path: validate inputs, write
+// credentials, no HTTP. Used when the user has obtained a JWT outside the
+// CLI (e.g. from web.plaud.ai's localStorage) for SSO accounts where OTP
+// login is unavailable.
+func runLoginToken(stdout io.Writer, in loginInput) error {
+	token := strings.TrimSpace(in.token)
+	if token == "" {
+		return errors.New("--token must be a non-empty bearer JWT")
+	}
+	if in.region == "" {
+		return errors.New("--token requires --region (one of us, eu, jp)")
+	}
+	region := api.Region(strings.ToLower(strings.TrimSpace(in.region)))
+	if _, err := api.BaseURL(region); err != nil {
+		return fmt.Errorf("invalid --region %q: must be one of us, eu, jp", in.region)
+	}
+	email := strings.TrimSpace(in.email)
+	if email == "" {
+		return errors.New("--token requires --email")
+	}
+
+	if err := auth.Save(auth.Credentials{
+		Token:      token,
+		Region:     string(region),
+		Email:      email,
+		ObtainedAt: time.Now().UTC(),
+	}); err != nil {
+		return fmt.Errorf("saving credentials: %w", err)
+	}
+	fmt.Fprintln(stdout, "Token stored. You can now run `plaud list`.")
+	return nil
 }
 
 func promptLine(out io.Writer, scanner *bufio.Scanner, prompt string) (string, error) {

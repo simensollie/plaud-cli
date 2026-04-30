@@ -184,6 +184,94 @@ func TestLogin_F09_TokenNeverInOutput(t *testing.T) {
 	}
 }
 
+// TestLogin_F03_TokenFlagSkipsOTP asserts that --token writes credentials
+// without making any HTTP calls to the OTP endpoints.
+//
+// Spec: specs/0001-auth-and-list/ F-03
+func TestLogin_F03_TokenFlagSkipsOTP(t *testing.T) {
+	setTempConfig(t)
+
+	fp := &fakePlaud{} // empty bodies, will fail any test that hits HTTP
+	srv := httptest.NewServer(fp.handler())
+	t.Cleanup(srv.Close)
+
+	const pasted = "eyJ-pasted-from-browser"
+	cmd := newLoginCmd(withBaseURLResolver(func(_ api.Region) (string, error) {
+		return srv.URL, nil
+	}))
+	cmd.SetIn(strings.NewReader(""))
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--token", pasted, "--region", "eu", "--email", "user@example.com"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("login --token: %v\noutput:\n%s", err, buf.String())
+	}
+
+	if fp.requestCount != 0 {
+		t.Errorf("--token path made %d HTTP request(s); want 0", fp.requestCount)
+	}
+
+	creds, err := auth.Load()
+	if err != nil {
+		t.Fatalf("auth.Load after --token login: %v", err)
+	}
+	if creds.Token != pasted {
+		t.Errorf("Token: got %q, want %q", creds.Token, pasted)
+	}
+	if creds.Region != "eu" {
+		t.Errorf("Region: got %q, want %q", creds.Region, "eu")
+	}
+	if creds.Email != "user@example.com" {
+		t.Errorf("Email: got %q, want %q", creds.Email, "user@example.com")
+	}
+}
+
+// TestLogin_F03_TokenFlagRequiresRegion asserts the --token path still
+// validates region (because the region is what `plaud list` uses to choose
+// the API host).
+//
+// Spec: specs/0001-auth-and-list/ F-03, F-AUTH-07
+func TestLogin_F03_TokenFlagRequiresRegion(t *testing.T) {
+	setTempConfig(t)
+
+	cmd := newLoginCmd()
+	cmd.SetIn(strings.NewReader(""))
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--token", "x", "--email", "u@example.com"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("--token without --region returned nil error, want non-nil")
+	}
+	if _, loadErr := auth.Load(); loadErr == nil {
+		t.Error("credentials saved despite missing region")
+	}
+}
+
+// TestLogin_F03_TokenFlagRejectsEmpty asserts that --token="" fails fast.
+//
+// Spec: specs/0001-auth-and-list/ F-03
+func TestLogin_F03_TokenFlagRejectsEmpty(t *testing.T) {
+	setTempConfig(t)
+
+	cmd := newLoginCmd()
+	cmd.SetIn(strings.NewReader(""))
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--token", "", "--region", "eu", "--email", "u@example.com"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("--token=\"\" returned nil error, want non-nil")
+	}
+}
+
 // TestDetectUserArea_FromLANG pins the $LANG → ISO 3166-1 alpha-2 mapping.
 //
 // Spec: specs/0001-auth-and-list/ F-02 (user_area derivation)
