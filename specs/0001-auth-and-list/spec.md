@@ -83,10 +83,13 @@ These are tracked in a separate roadmap document once we have v0.1 working.
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Where does the OTP `POST email` endpoint live? Confirmed via reverse-engineered prior art (`jaisonerick/plaud-cli`), but we should verify with a fresh network capture before committing. | Capture during first implementation session. |
-| 2 | Does the EU host (`api-euc1.plaud.ai`) accept the same OTP flow shape as the US host? | Verify during implementation. Likely yes; if not, gate region-specific paths in `internal/api/`. |
+| 1 | Does `Authorization: bearer <jwt>` work against `api-euc1.plaud.ai` protected endpoints, or do we need a cookie jar? | Validate during Phase 6 with a real-account smoke. Prior art has used bearer for ~10 months; expectation is that it works. If it 401s, pivot to cookie-jar client. |
 
-Resolved: repo name `plaud-cli`, binary name `plaud`. Fallback name `plaudr` held in reserve in case Plaud ever ships an official `plaud` binary; rename would be a release with a transitional alias. See `notes.md` 2026-04-30 entry.
+Resolved:
+
+- **Repo / binary name.** Repo `plaud-cli`, binary `plaud`. Fallback `plaudr` held in reserve. See `notes.md` 2026-04-30.
+- **OTP endpoints.** Captured. `POST {global}/auth/otp-send-code` for region discovery, `POST {region}/auth/otp-send-code` to obtain a one-time exchange token, `POST {region}/auth/otp-login` to redeem. See `notes.md` 2026-05-01.
+- **EU host parity.** Confirmed against `api-euc1.plaud.ai`. Same shape as global; differs only in domain.
 
 ## 8. Acceptance criteria for v0.1
 

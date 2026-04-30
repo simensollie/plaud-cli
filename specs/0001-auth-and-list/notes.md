@@ -6,6 +6,88 @@ For why this file exists and what to put in it, see `specs/README.md`.
 
 ---
 
+## 2026-05-01 — OTP flow captured (full walkthrough from new-account create)
+
+User captured a second HAR (`create.web.plaud.ai.har`, gitignored) covering an email + OTP login and the post-login flow. This is the spec's target auth path. All endpoints + body shapes documented below.
+
+### The flow
+
+**Step 1 — Region discovery (global host).**
+`POST https://api.plaud.ai/auth/otp-send-code`
+- Request: `{username: "<email>", user_area: "<2-letter ISO 3166-1 country code, e.g. NO, US, JP>"}`
+- Response: `{status, msg, data: {domains: {api: "https://api-euc1.plaud.ai"}}}`
+
+`user_area` value observed: `"NO"`. For v0.1, default to a sensible value derived from `$LANG` (e.g. `nb_NO.UTF-8` → `NO`) with `US` as the fallback, and expose `--user-area` for override. We do not yet know whether the server rejects the request if the area is missing or wrong; first implementation should test both presence and obvious-wrong values.
+
+The global host returns the correct regional API host for this user. **Implication:** region auto-detection is feasible. F-AUTH-07 currently asks the user to pick at login; we could instead just ask for email and resolve the region. Out of scope for v0.1 but worth a future spec.
+
+**Step 2 — Send OTP (regional host).**
+`POST https://api-euc1.plaud.ai/auth/otp-send-code`
+- Request: `{username: "<email>", user_area: "<area-code>"}`
+- Response: `{status, msg, request_id, token: "<one-time exchange token>"}`
+
+The `token` here is **not** the bearer token. It's a one-time identifier tying the email to the in-flight OTP. We hold it client-side and pass it to the next call.
+
+**Step 3 — Verify OTP and obtain access token.**
+`POST https://api-euc1.plaud.ai/auth/otp-login`
+- Request: `{token: "<from step 2>", code: "<6-digit OTP>", user_area, require_set_password: bool, team_enabled: bool}`
+- Response: `{status, msg, request_id, access_token: "<JWT>", token_type: "bearer", has_password: bool, is_new_user: bool, set_password_token: "<...>" | null}`
+
+- `access_token` is the bearer JWT we persist.
+- If `set_password_token` is present (typically when `is_new_user: true` or `has_password: false`), the user has not yet set a password. The web client forces a password set before the access_token works for protected calls. We do not yet know if the access_token alone is usable in this state.
+
+**Step 4 (only when password unset) — Set password.**
+`POST https://api-euc1.plaud.ai/auth/set-password-issue-token`
+- Request: `{password, password_encrypted: bool, set_password_token, user_area, team_enabled}`
+- Response: `{status, msg, request_id, access_token: "<JWT>", token_type: "bearer", login_count_per_hour, login_total_per_hour}`
+
+This mints a fresh `access_token` that supersedes the one from step 3.
+
+### v0.1 design choice for the password-set edge case
+
+If `otp-login` returns `set_password_token` (account never set a password, e.g. SSO-only or brand-new), the v0.1 CLI surfaces a clear error and stops:
+
+> Your Plaud account does not have a password set. Open https://web.plaud.ai, set a password under Account, then run `plaud login` again.
+
+Implementing the password-set flow ourselves doubles the auth surface area for an edge case most users won't hit. Defer to a future spec if demand emerges.
+
+### List endpoint (Phase 6 prep)
+
+`GET https://api-euc1.plaud.ai/file/simple/web?skip=0&limit=99999&is_trash=2&sort_by=start_time&is_desc=true`
+- Response wrapper: `{status, msg, request_id, data_file_list: [...], data_file_total: N}`
+- Per-recording fields (all 25 captured): `id` (32-char hex), `filename` (user title), `fullname` (36-char hex, likely the audio file name on storage), `filesize` (number, bytes), `filetype` (string, ~9 chars, e.g. file extension), `file_md5` (32-char hex), `start_time`, `end_time`, `edit_time`, `duration`, `timezone`, `zonemins`, `scene`, `serial_number` (7-char), `version`, `version_ms`, `wait_pull` (numbers), `is_trash`, `is_trans` (has transcript), `is_summary`, `is_markmemo`, `ori_ready` (booleans), `keywords`, `filetag_id_list` (arrays), `edit_from` (e.g. `"web"`).
+
+Numeric times: fields without `_ms` suffix are likely epoch seconds (`start_time`, `end_time`, `edit_time`); those with `_ms` are milliseconds (`version_ms`). To verify on first real call.
+
+### Custom request headers used by the web client
+
+Every authenticated GET sends:
+
+| Header | Value |
+|---|---|
+| `app-language` | `en` (or user's UI language) |
+| `app-platform` | `web` |
+| `edit-from` | `web` |
+| `x-device-id` | 16-hex chars, randomized per browser session |
+| `x-pld-user` | 64-hex chars = user's account ID (returned by `/user/me`, NOT a credential) |
+| `x-request-id` | random short string per request |
+| `timezone` | IANA tz, e.g. `Europe/Oslo` |
+
+Our client should mimic at least `app-platform`, `edit-from`, `x-device-id` (generated once at install, persisted), and `x-request-id` (random per call). `x-pld-user` we cannot send until we've called `/user/me` once after login; we can either pre-fetch on login and store, or fetch lazily on first protected call.
+
+### Bearer-vs-cookie auth question — still open
+
+The HAR still has cookies stripped (Chrome's HAR export default). The web client almost certainly uses session cookies (the otp-login response had `access-control-allow-credentials: true`, which is required for cross-origin credentialed cookies). But the JWT-shaped `access_token` returned by otp-login is the same kind of thing the prior-art tools (`jaisonerick/plaud-cli`, `sergivalverde/plaud-toolkit`, the Obsidian plugin) use as `Authorization: Bearer <jwt>` against the same endpoints.
+
+Decision: ship Phase 2 with `Authorization: bearer <access_token>` and the custom headers above. Validate against `/user/me` immediately after login as a smoke test. If it 401s, pivot to a cookie-jar client (cookies returned by the otp-login response would survive a non-stripping HTTP client even if Chrome's HAR export hides them).
+
+### Status of open questions in spec.md §7
+
+- **Q1 (OTP send endpoint):** RESOLVED. `POST {global}/auth/otp-send-code` with `{username, user_area}`, then `POST {region}/auth/otp-send-code` with the same body.
+- **Q2 (EU host accepts the same flow):** RESOLVED. Confirmed working against `api-euc1.plaud.ai`.
+
+---
+
 ## 2026-04-30 — Findings from Apple-SSO HAR capture
 
 User captured a HAR from web.plaud.ai during an Apple SSO login. File at `specs/0001-auth-and-list/web.plaud.ai.har` (gitignored, never commit).
