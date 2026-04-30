@@ -1,0 +1,83 @@
+version: 2
+
+project_name: plaud-cli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: plaud
+    main: ./cmd/plaud
+    binary: plaud
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: default
+    name_template: "plaud-cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+release:
+  github:
+    owner: simensollie
+    name: plaud-cli
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"
+  header: |
+    ## plaud-cli v{{.Version}}
+
+    Unofficial CLI for archiving recordings, transcripts, and summaries from your own Plaud.ai account.
+    Not affiliated with PLAUD LLC.
+
+    ### Quick start
+
+    Download the archive for your platform below, extract, put `plaud` on your `PATH`:
+
+    ```bash
+    plaud login           # interactive OTP, or:
+    plaud login --token <jwt> --region eu --email you@example.com
+    plaud list
+    plaud logout
+    ```
+  footer: |
+    Verify integrity with `sha256sum -c checksums.txt`.
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?F-\d.*$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix.*$'
+      order: 1
+    - title: Other
+      order: 999

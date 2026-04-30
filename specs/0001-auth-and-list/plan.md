@@ -170,8 +170,8 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - `cmd/plaud/logout.go` — calls `internal/auth.Delete()`.
 
 **Done when:**
-- [ ] Both tests green
-- [ ] Manual smoke: `plaud logout && plaud list` prints "Not logged in" cleanly
+- [x] Both tests green
+- [x] Manual smoke: `plaud logout && plaud list` prints "Not logged in" cleanly
 
 ---
 
