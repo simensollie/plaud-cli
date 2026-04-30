@@ -45,9 +45,9 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - `internal/api/client.go` — `Client` struct, `New(region, token, opts...) (*Client, error)`, internal `do(req)` that injects the header.
 
 **Done when:**
-- [ ] Both tests in red, then green
-- [ ] No external HTTP made by tests
-- [ ] Client refuses to construct with empty region or empty token (returns wrapped error)
+- [x] Both tests in red, then green
+- [x] No external HTTP made by tests
+- [x] Client refuses to construct with empty region or empty token (returns wrapped error)
 
 ---
 
