@@ -1,0 +1,27 @@
+# Binaries
+plaud
+plaud.exe
+/dist/
+/bin/
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+*.prof
+
+# Go workspace
+go.work
+go.work.sum
+
+# Local-only files
+*.local.*
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
