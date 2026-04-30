@@ -19,9 +19,14 @@ go.work.sum
 .env
 .env.local
 
+# Network captures (contain tokens, emails, cookies — never commit)
+*.har
+*.har.gz
+
 # Editor
 .vscode/
 .idea/
 *.swp
 *~
 .DS_Store
+.claude/
