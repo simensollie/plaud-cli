@@ -151,3 +151,4 @@ Open a PR with the spec only (no code). Get sign-off. Then implement.
 | 0002 | Download recordings | Draft | v0.2 |
 | 0003 | Sync | Draft (depends on 0002) | v0.3 |
 | 0004 | Prompt composition | Draft (depends on 0002) | v0.4 |
+| 0005 | Help and discoverability | Draft | v0.2 |
