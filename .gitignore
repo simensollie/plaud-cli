@@ -1,6 +1,6 @@
-# Binaries
-plaud
-plaud.exe
+# Binaries (root-only anchors; never match cmd/plaud/ source dir)
+/plaud
+/plaud.exe
 /dist/
 /bin/
 

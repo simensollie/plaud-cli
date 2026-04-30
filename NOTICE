@@ -1,0 +1,32 @@
+plaud-cli
+Copyright (c) 2026 Simen Sollie
+
+This product is licensed under the MIT License (see LICENSE).
+
+------------------------------------------------------------------------
+
+UNOFFICIAL TOOL NOTICE
+
+plaud-cli is an UNOFFICIAL community tool for archiving recordings,
+transcripts, and summaries from a user's own Plaud.ai account.
+
+It is NOT affiliated with, endorsed by, sponsored by, certified by,
+authorized by, or otherwise connected to PLAUD LLC or any other entity
+operating the Plaud.ai service.
+
+"PLAUD" and "Plaud.ai" are trademarks of their respective owners. This
+project uses these names solely to identify the third-party service that
+the tool interoperates with (nominative fair use). No claim of ownership,
+partnership, or endorsement is made or implied.
+
+If you are PLAUD LLC and would prefer this project use a different name,
+please open an issue at https://github.com/simensollie/plaud-cli/issues
+and we will accommodate a reasonable rename.
+
+------------------------------------------------------------------------
+
+USE NOTICE
+
+Use this tool only with credentials you are authorized to use (typically
+your own Plaud.ai account). Using this tool against another person's
+account without their authorization may be unlawful in your jurisdiction.
