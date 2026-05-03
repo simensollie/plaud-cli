@@ -1,8 +1,8 @@
 # Spec 0003: Sync
 
-**Status:** Draft
+**Status:** Active
 **Created:** 2026-05-01
-**Updated:** 2026-05-03
+**Updated:** 2026-05-04
 **Owner:** @simensollie
 **Target version:** v0.3
 

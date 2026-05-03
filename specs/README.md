@@ -149,6 +149,6 @@ Open a PR with the spec only (no code). Get sign-off. Then implement.
 |---|---|---|---|
 | 0001 | Authentication and List | Active (v0.1.0 released 2026-05-01; cross-platform + OTP smoke pending) | v0.1 |
 | 0002 | Download recordings | Draft | v0.2 |
-| 0003 | Sync | Draft (depends on 0002) | v0.3 |
+| 0003 | Sync | Active (implementation complete; pending Probe A + cross-OS lock + acceptance walk) | v0.3 |
 | 0004 | Prompt composition | Draft (depends on 0002) | v0.4 |
 | 0005 | Help and discoverability | Draft | v0.2 |

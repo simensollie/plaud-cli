@@ -6,6 +6,20 @@ For the convention, see `specs/README.md`.
 
 ---
 
+## 2026-05-04: Status flipped Draft → Active
+
+All eight phases of the plan landed in commit `6e4f8fb` (`F-01..F-16: implement spec 0003 sync end-to-end`). `go test -race ./...` green; cross-compiles green for linux/darwin/windows × amd64/arm64; `go vet`, `gofmt` clean. 252 tests, 0 failures.
+
+Status flipped to Active. Three preconditions remain before Done:
+
+1. **Probe A** (spec.md §7 Q3): real-account `version`/`version_ms` observation across (a) pipeline completion, (b) speaker rename in web.plaud.ai, (c) summary regen. Until run, F-15 Layer B is wired but disabled (`ReconcileOptions.EnableVersionLayer` defaults to false). The `Reconcile_F15_LayerB_VersionBumpReFetches` test passes but is gated behind that flag.
+2. **Cross-OS lock validation** (spec.md §7 Q1): the Phase 0 spike covered Linux only. macOS (BSD flock) is expected to behave identically; Windows (`LockFileEx`) needs a live reproduction of the contention + auto-release semantics. `TestLock_F11_*` runs on Linux today.
+3. **§8 acceptance walk** on macOS, Linux, and Windows against a real Plaud account using the platform binaries from the GitHub release (acceptance criterion 15).
+
+Until those three close, the spec is Active rather than Done; new feature work flows through a follow-up spec rather than amendments here.
+
+---
+
 ## 2026-05-03: Phase 0 probes
 
 **Probe B — `flock` portability (Linux, partial):**
