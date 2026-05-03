@@ -3,8 +3,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -30,12 +33,17 @@ endorsed by, or sponsored by PLAUD LLC.`,
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newLogoutCmd())
 	cmd.AddCommand(newDownloadCmd())
+	cmd.AddCommand(newSyncCmd())
 
 	return cmd
 }
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	// Cancel the cobra command's context on SIGINT/SIGTERM so long-running
+	// commands (sync, sync --watch) drain cleanly. Spec 0003 F-04/F-05.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if err := newRootCmd().ExecuteContext(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}

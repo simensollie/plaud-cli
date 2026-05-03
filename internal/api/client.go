@@ -40,6 +40,29 @@ func WithAudioHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.audioClient = hc }
 }
 
+// WithBackoffTransport wraps both the API and audio HTTP clients in
+// BackoffTransport so 429 retries with exponential backoff (spec 0003 F-06)
+// apply to every request. 5xx and network errors still surface immediately.
+// Spec 0002 F-15 acquires this behavior automatically when the CLI uses it.
+func WithBackoffTransport() Option {
+	return func(c *Client) {
+		if c.httpClient != nil {
+			inner := c.httpClient.Transport
+			if inner == nil {
+				inner = http.DefaultTransport
+			}
+			c.httpClient.Transport = &BackoffTransport{Inner: inner}
+		}
+		if c.audioClient != nil {
+			inner := c.audioClient.Transport
+			if inner == nil {
+				inner = http.DefaultTransport
+			}
+			c.audioClient.Transport = &BackoffTransport{Inner: inner}
+		}
+	}
+}
+
 // ErrEmptyRegion is returned by New when the region argument is the zero value.
 var ErrEmptyRegion = errors.New("empty region")
 

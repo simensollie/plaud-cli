@@ -41,6 +41,11 @@ type Recording struct {
 	// (metadata.audio.original_upload_md5); never used as an idempotency key
 	// because the served audio bytes are .mp3, not .opus. F-07(a).
 	FileMD5 string
+	// Version and VersionMs are the server-side staleness signal for spec
+	// 0003 F-15 Layer B. Empirical behavior is captured in spec 0003
+	// notes.md (Phase 0 Probe A); spec 0002 callers ignore both fields.
+	Version   string
+	VersionMs int64
 }
 
 // rawRecording mirrors the JSON wire format. Kept narrow to the fields the
@@ -55,6 +60,8 @@ type rawRecording struct {
 	IsTrans   bool   `json:"is_trans"`
 	IsSummary bool   `json:"is_summary"`
 	FileMD5   string `json:"file_md5"`
+	Version   string `json:"version"`
+	VersionMs int64  `json:"version_ms"`
 }
 
 func (r rawRecording) toRecording() Recording {
@@ -71,6 +78,8 @@ func (r rawRecording) toRecording() Recording {
 		HasTranscript: r.IsTrans,
 		HasSummary:    r.IsSummary,
 		FileMD5:       r.FileMD5,
+		Version:       r.Version,
+		VersionMs:     r.VersionMs,
 	}
 }
 
@@ -94,11 +103,22 @@ func withListPageSize(n int) listOption {
 	return func(c *listConfig) { c.pageSize = n }
 }
 
-// List enumerates every active recording on the account, walking pages
-// until the server's data_file_total has been reached. Returns
-// ErrUnauthorized on 401 so the CLI can surface a "log in again" message
-// without retrying.
+// List enumerates every active recording on the account (is_trash=0),
+// walking pages until the server's data_file_total has been reached.
+// Returns ErrUnauthorized on 401 so the CLI can surface a "log in again"
+// message without retrying.
 func (c *Client) List(ctx context.Context, opts ...listOption) ([]Recording, error) {
+	return c.listWithFilter(ctx, 0, opts...)
+}
+
+// ListTrashed enumerates only the recordings the user has moved to trash
+// in the Plaud web UI (is_trash=1). Used by spec 0003 sync's prune logic
+// (F-09) to distinguish "deleted server-side" from "merely trashed".
+func (c *Client) ListTrashed(ctx context.Context, opts ...listOption) ([]Recording, error) {
+	return c.listWithFilter(ctx, 1, opts...)
+}
+
+func (c *Client) listWithFilter(ctx context.Context, isTrash int, opts ...listOption) ([]Recording, error) {
 	cfg := &listConfig{pageSize: defaultListPageSize}
 	for _, opt := range opts {
 		opt(cfg)
@@ -108,8 +128,8 @@ func (c *Client) List(ctx context.Context, opts ...listOption) ([]Recording, err
 	skip := 0
 	for {
 		url := fmt.Sprintf(
-			"%s/file/simple/web?skip=%d&limit=%d&is_trash=0&sort_by=start_time&is_desc=true",
-			c.baseURL, skip, cfg.pageSize,
+			"%s/file/simple/web?skip=%d&limit=%d&is_trash=%d&sort_by=start_time&is_desc=true",
+			c.baseURL, skip, cfg.pageSize, isTrash,
 		)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {

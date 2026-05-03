@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +19,7 @@ import (
 	"github.com/simensollie/plaud-cli/internal/api"
 	"github.com/simensollie/plaud-cli/internal/archive"
 	"github.com/simensollie/plaud-cli/internal/auth"
+	"github.com/simensollie/plaud-cli/internal/fetch"
 )
 
 // downloadCmdOpts carries the test seams the download command exposes.
@@ -218,7 +217,7 @@ func runDownload(ctx context.Context, stdout, stderr io.Writer, o *downloadCmdOp
 
 	jsonMode := in.format == "json"
 	var stdoutMu sync.Mutex
-	onComplete := func(res recordingResult) {
+	onComplete := func(res fetch.Result) {
 		if !jsonMode {
 			return
 		}
@@ -232,12 +231,17 @@ func runDownload(ctx context.Context, stdout, stderr io.Writer, o *downloadCmdOp
 		stdoutMu.Unlock()
 	}
 
-	results := runWorkerPool(ctx, client, root, resolved, include, transcriptFormats, audioFormat, in.force, concurrency, o.now, onComplete)
+	results := runWorkerPool(ctx, client, root, resolved, fetch.Options{
+		Include:           include,
+		TranscriptFormats: transcriptFormats,
+		AudioFormat:       audioFormat,
+		Force:             in.force,
+	}, concurrency, o.now, onComplete)
 
 	emitResults(stdout, stderr, results, jsonMode)
 
 	for _, r := range results {
-		if r.status == statusFailed {
+		if r.Status == fetch.StatusFailed {
 			return errors.New("one or more recordings failed")
 		}
 	}
@@ -464,23 +468,6 @@ func candidateLines(recs []api.Recording) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-type recordingStatus string
-
-const (
-	statusFetched recordingStatus = "fetched"
-	statusSkipped recordingStatus = "skipped"
-	statusFailed  recordingStatus = "failed"
-)
-
-type recordingResult struct {
-	id           string
-	status       recordingStatus
-	files        []string
-	skippedFiles []string
-	durationMs   int64
-	err          error
-}
-
 // jsonResult is the wire shape of one --format json object on stdout.
 // Documented in --help; not stability-committed before v1.0 (F-12).
 type jsonResult struct {
@@ -500,18 +487,15 @@ func runWorkerPool(
 	client *api.Client,
 	root string,
 	recs []api.Recording,
-	include archive.IncludeSet,
-	transcriptFormats []string,
-	audioFormat string,
-	force bool,
+	opts fetch.Options,
 	concurrency int,
 	now func() time.Time,
-	onComplete func(recordingResult),
-) []recordingResult {
+	onComplete func(fetch.Result),
+) []fetch.Result {
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
 
-	results := make([]recordingResult, len(recs))
+	results := make([]fetch.Result, len(recs))
 	type job struct {
 		idx int
 		rec api.Recording
@@ -533,7 +517,7 @@ func runWorkerPool(
 		})
 	}
 
-	emit := func(res recordingResult) {
+	emit := func(res fetch.Result) {
 		if onComplete != nil {
 			onComplete(res)
 		}
@@ -545,17 +529,17 @@ func runWorkerPool(
 			defer wg.Done()
 			for j := range jobs {
 				if ctx.Err() != nil {
-					res := recordingResult{
-						id:     j.rec.ID,
-						status: statusFailed,
-						err:    errors.New("cancelled"),
+					res := fetch.Result{
+						ID:     j.rec.ID,
+						Status: fetch.StatusFailed,
+						Err:    errors.New("cancelled"),
 					}
 					results[j.idx] = res
 					emit(res)
 					continue
 				}
-				res := processRecording(ctx, client, root, j.rec, include, transcriptFormats, audioFormat, force, now)
-				if res.err != nil && errors.Is(res.err, api.ErrUnauthorized) {
+				res := fetch.FetchOne(ctx, client, root, j.rec, opts, now)
+				if res.Err != nil && errors.Is(res.Err, api.ErrUnauthorized) {
 					flagAuth("Token expired or invalid. Run `plaud login` again.")
 				}
 				results[j.idx] = res
@@ -567,10 +551,10 @@ func runWorkerPool(
 	for i, r := range recs {
 		select {
 		case <-ctx.Done():
-			res := recordingResult{
-				id:     r.ID,
-				status: statusFailed,
-				err:    errors.New("cancelled"),
+			res := fetch.Result{
+				ID:     r.ID,
+				Status: fetch.StatusFailed,
+				Err:    errors.New("cancelled"),
 			}
 			results[i] = res
 			emit(res)
@@ -585,439 +569,37 @@ func runWorkerPool(
 	authMutex.Unlock()
 	if msg != "" {
 		for i, res := range results {
-			if res.status == statusFailed && res.err != nil && errors.Is(res.err, api.ErrUnauthorized) {
-				results[i].err = errors.New(msg)
+			if res.Status == fetch.StatusFailed && res.Err != nil && errors.Is(res.Err, api.ErrUnauthorized) {
+				results[i].Err = errors.New(msg)
 			}
 		}
 	}
 	return results
 }
 
-// processRecording is the per-recording orchestration: trash warning,
-// partial sweep, metadata load/rebuild, detail call, audio fetch, transcript
-// rendering, summary, and metadata write.
-func processRecording(
-	ctx context.Context,
-	client *api.Client,
-	root string,
-	rec api.Recording,
-	include archive.IncludeSet,
-	transcriptFormats []string,
-	audioFormat string,
-	force bool,
-	now func() time.Time,
-) recordingResult {
-	start := now()
-	res := recordingResult{id: rec.ID}
-
-	// Phase 5 always fetches detail. /file/detail carries is_trash, start_time,
-	// duration, and language alongside the artifact pointers; we need it both
-	// for direct-ID resolution (no preceding list call) and for the F-17
-	// trash warning.
-	detail, err := client.Detail(ctx, rec.ID)
-	if err != nil {
-		return failResult(res, err, start, now)
-	}
-
-	if rec.Filename == "" {
-		rec.Filename = detail.Title
-	}
-	if rec.StartTime.IsZero() {
-		rec.StartTime = detail.StartTime
-	}
-	if rec.Duration == 0 {
-		rec.Duration = detail.Duration
-	}
-	if detail.IsTrash {
-		rec.IsTrash = true
-	}
-
-	slug := archive.Slug(rec.Filename)
-	if slug == "untitled" {
-		slug = archive.SlugWithCollision(rec.Filename, rec.ID, func(s string) bool { return s == "untitled" })
-	}
-	archiveRec := archive.Recording{
-		ID:              rec.ID,
-		Title:           rec.Filename,
-		TitleSlug:       slug,
-		RecordedAtUTC:   rec.StartTime.UTC(),
-		RecordedAtLocal: rec.StartTime,
-		DurationMS:      rec.Duration.Milliseconds(),
-	}
-	folder, err := archive.RecordingFolder(root, archiveRec)
-	if err != nil {
-		return failResult(res, fmt.Errorf("resolving folder: %w", err), start, now)
-	}
-	folder = archive.PrefixLongPath(folder)
-
-	if rec.IsTrash {
-		// The caller (caller's caller, really) prints this on stderr; we
-		// stash it on the result so emitResults can decide on the format.
-		res.files = append(res.files, "(trashed)")
-	}
-
-	if err := os.MkdirAll(folder, 0o755); err != nil {
-		return failResult(res, fmt.Errorf("creating folder: %w", err), start, now)
-	}
-	if err := archive.SweepPartials(folder); err != nil {
-		return failResult(res, fmt.Errorf("sweeping partials: %w", err), start, now)
-	}
-
-	meta, rebuilt, err := loadOrInitMetadata(folder, archiveRec, now())
-	if err != nil {
-		return failResult(res, err, start, now)
-	}
-	if rebuilt {
-		res.files = append(res.files, "(metadata-rebuilt)")
-	}
-
-	anyWrite := false
-	skippedAll := true
-
-	if include.Audio {
-		written, skipped, audioErr := fetchAudio(ctx, client, folder, audioFormat, rec, meta, force)
-		if audioErr != nil {
-			return failResult(res, audioErr, start, now)
-		}
-		audioName := "audio." + audioFormat
-		if written {
-			anyWrite = true
-			res.files = append(res.files, audioName)
-		} else if skipped {
-			res.skippedFiles = append(res.skippedFiles, audioName)
-		}
-		if !skipped {
-			skippedAll = false
-		}
-	}
-
-	if include.Transcript {
-		switch {
-		case detail == nil || detail.Segments == nil:
-			res.files = append(res.files, "(transcript-not-ready)")
-		default:
-			written, transErr := writeTranscript(folder, detail, transcriptFormats, meta, force)
-			if transErr != nil {
-				return failResult(res, transErr, start, now)
-			}
-			if written {
-				anyWrite = true
-				skippedAll = false
-				res.files = append(res.files, "transcript.json")
-				for _, fmtName := range transcriptFormats {
-					if fmtName == "json" {
-						continue
-					}
-					res.files = append(res.files, "transcript."+fmtName)
-				}
-			} else {
-				res.skippedFiles = append(res.skippedFiles, "transcript.json")
-				for _, fmtName := range transcriptFormats {
-					if fmtName == "json" {
-						continue
-					}
-					res.skippedFiles = append(res.skippedFiles, "transcript."+fmtName)
-				}
-			}
-		}
-	}
-
-	if include.Summary {
-		switch {
-		case detail == nil || strings.TrimSpace(detail.Summary) == "":
-			res.files = append(res.files, "(summary-not-ready)")
-		default:
-			written, sumErr := writeSummary(folder, detail.Summary, meta, force)
-			if sumErr != nil {
-				return failResult(res, sumErr, start, now)
-			}
-			if written {
-				anyWrite = true
-				skippedAll = false
-				res.files = append(res.files, "summary.plaud.md")
-			} else {
-				res.skippedFiles = append(res.skippedFiles, "summary.plaud.md")
-			}
-		}
-	}
-
-	// Metadata is always written if any other artifact landed (F-07(e), §4).
-	// On no-op runs we still bump last_verified_at and rewrite.
-	if force {
-		meta.MarkArtifactWritten(now())
-	} else if anyWrite {
-		meta.MarkArtifactWritten(now())
-	} else {
-		meta.MarkVerified(now())
-	}
-	metaBytes, err := archive.MarshalMetadata(meta)
-	if err != nil {
-		return failResult(res, fmt.Errorf("marshaling metadata: %w", err), start, now)
-	}
-	if err := archive.WriteAtomic(filepath.Join(folder, archive.MetadataFilename), metaBytes); err != nil {
-		return failResult(res, fmt.Errorf("writing metadata: %w", err), start, now)
-	}
-	res.files = append(res.files, archive.MetadataFilename)
-
-	res.durationMs = now().Sub(start).Milliseconds()
-	if force {
-		res.status = statusFetched
-	} else if !anyWrite && skippedAll {
-		res.status = statusSkipped
-	} else {
-		res.status = statusFetched
-	}
-	return res
-}
-
-func failResult(res recordingResult, err error, start time.Time, now func() time.Time) recordingResult {
-	res.status = statusFailed
-	res.err = err
-	res.durationMs = now().Sub(start).Milliseconds()
-	return res
-}
-
-func loadOrInitMetadata(folder string, rec archive.Recording, now time.Time) (*archive.Metadata, bool, error) {
-	p := filepath.Join(folder, archive.MetadataFilename)
-	raw, err := os.ReadFile(p)
-	if errors.Is(err, os.ErrNotExist) {
-		return archive.NewMetadata(rec, now), false, nil
-	}
-	if err != nil {
-		return nil, false, fmt.Errorf("reading %s: %w", p, err)
-	}
-	m, err := archive.UnmarshalMetadata(raw)
-	if err != nil {
-		rebuilt, rerr := archive.RebuildMetadataFromDisk(folder, rec, now)
-		if rerr != nil {
-			return nil, false, fmt.Errorf("rebuilding metadata: %w", rerr)
-		}
-		return rebuilt, true, nil
-	}
-	return m, false, nil
-}
-
-// fetchAudio handles the two-step signed-URL flow with one retry on a
-// 401/403 from S3 (signature expiry). Returns (written, skipped, err):
-// written=true when audio bytes hit disk this run; skipped=true when the
-// HEAD ETag matched and no GET was issued.
-func fetchAudio(
-	ctx context.Context,
-	client *api.Client,
-	folder string,
-	audioFormat string,
-	rec api.Recording,
-	meta *archive.Metadata,
-	force bool,
-) (bool, bool, error) {
-	signedURL, err := client.TempURL(ctx, rec.ID)
-	if err != nil {
-		return false, false, fmt.Errorf("fetching audio URL: %w", err)
-	}
-
-	probe, err := client.ProbeAudio(ctx, signedURL)
-	if errors.Is(err, api.ErrSignedURLExpired) {
-		signedURL, err = client.TempURL(ctx, rec.ID)
-		if err != nil {
-			return false, false, fmt.Errorf("refetching audio URL: %w", err)
-		}
-		probe, err = client.ProbeAudio(ctx, signedURL)
-		if err != nil {
-			return false, false, fmt.Errorf("probing audio after retry: %w", err)
-		}
-	} else if err != nil {
-		return false, false, fmt.Errorf("probing audio: %w", err)
-	}
-
-	if !force && meta.Audio != nil && probe.ETag != "" && probe.ETag == meta.Audio.S3ETag {
-		return false, true, nil
-	}
-
-	audioName := "audio." + audioFormat
-	dst := filepath.Join(folder, audioName)
-	tmp := dst + ".partial"
-	if err := os.MkdirAll(folder, 0o755); err != nil {
-		return false, false, fmt.Errorf("creating folder for audio: %w", err)
-	}
-	f, err := os.OpenFile(tmp, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return false, false, fmt.Errorf("opening %s: %w", tmp, err)
-	}
-	hashSHA := sha256.New()
-	mw := io.MultiWriter(f, hashSHA)
-	written, etag, localMD5, dlErr := client.DownloadAudio(ctx, signedURL, mw)
-	if errors.Is(dlErr, api.ErrSignedURLExpired) {
-		_ = f.Close()
-		_ = os.Remove(tmp)
-		signedURL, err = client.TempURL(ctx, rec.ID)
-		if err != nil {
-			return false, false, fmt.Errorf("refetching audio URL after stream expiry: %w", err)
-		}
-		f, err = os.OpenFile(tmp, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-		if err != nil {
-			return false, false, fmt.Errorf("re-opening %s: %w", tmp, err)
-		}
-		hashSHA = sha256.New()
-		mw = io.MultiWriter(f, hashSHA)
-		written, etag, localMD5, dlErr = client.DownloadAudio(ctx, signedURL, mw)
-	}
-	if dlErr != nil {
-		_ = f.Close()
-		_ = os.Remove(tmp)
-		return false, false, fmt.Errorf("downloading audio: %w", dlErr)
-	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		_ = os.Remove(tmp)
-		return false, false, fmt.Errorf("fsync audio: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(tmp)
-		return false, false, fmt.Errorf("closing audio: %w", err)
-	}
-	if err := os.Rename(tmp, dst); err != nil {
-		_ = os.Remove(tmp)
-		return false, false, fmt.Errorf("renaming audio: %w", err)
-	}
-
-	meta.SetAudio(archive.MetaAudio{
-		Filename:          audioName,
-		SizeBytes:         written,
-		S3ETag:            etag,
-		OriginalUploadMD5: rec.FileMD5,
-		LocalMD5:          localMD5,
-		LocalSHA256:       hex.EncodeToString(hashSHA.Sum(nil)),
-	})
-	return true, false, nil
-}
-
-func writeTranscript(
-	folder string,
-	detail *api.RecordingDetail,
-	formats []string,
-	meta *archive.Metadata,
-	force bool,
-) (bool, error) {
-	tr := archive.Transcript{Version: 1, Segments: convertSegments(detail.Segments)}
-	if tr.Segments == nil {
-		tr.Segments = []archive.Segment{}
-	}
-	canonical, err := marshalCanonicalTranscript(tr)
-	if err != nil {
-		return false, fmt.Errorf("marshaling transcript: %w", err)
-	}
-	sum := sha256.Sum256(canonical)
-	freshSHA := hex.EncodeToString(sum[:])
-
-	if !force && !archive.ShouldRewriteTranscript(meta, freshSHA) {
-		return false, nil
-	}
-
-	if err := archive.WriteAtomic(filepath.Join(folder, "transcript.json"), canonical); err != nil {
-		return false, fmt.Errorf("writing transcript.json: %w", err)
-	}
-	for _, fmtName := range formats {
-		if fmtName == "json" {
-			continue
-		}
-		body, rerr := archive.Render(tr, fmtName)
-		if rerr != nil {
-			return false, fmt.Errorf("rendering transcript.%s: %w", fmtName, rerr)
-		}
-		if err := archive.WriteAtomic(filepath.Join(folder, "transcript."+fmtName), body); err != nil {
-			return false, fmt.Errorf("writing transcript.%s: %w", fmtName, err)
-		}
-	}
-
-	meta.SetTranscript(archive.MetaTranscript{
-		Filename:     "transcript.json",
-		SHA256:       freshSHA,
-		SegmentCount: len(tr.Segments),
-		Language:     detail.Language,
-	})
-	return true, nil
-}
-
-func convertSegments(in []api.Segment) []archive.Segment {
-	if in == nil {
-		return nil
-	}
-	out := make([]archive.Segment, len(in))
-	for i, s := range in {
-		out[i] = archive.Segment{
-			Speaker:         s.Speaker,
-			OriginalSpeaker: s.OriginalSpeaker,
-			StartMs:         s.StartMs,
-			EndMs:           s.EndMs,
-			Text:            s.Text,
-		}
-	}
-	return out
-}
-
-// marshalCanonicalTranscript renders the transcript as pretty-printed JSON
-// with sorted keys and a trailing newline. Matches the metadata.json
-// formatting so transcript SHA-256 is stable across rewrites.
-func marshalCanonicalTranscript(tr archive.Transcript) ([]byte, error) {
-	raw, err := json.Marshal(tr)
-	if err != nil {
-		return nil, err
-	}
-	var generic any
-	if err := json.Unmarshal(raw, &generic); err != nil {
-		return nil, err
-	}
-	out, err := json.MarshalIndent(generic, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	out = append(out, '\n')
-	return out, nil
-}
-
-func writeSummary(folder, summary string, meta *archive.Metadata, force bool) (bool, error) {
-	body := []byte(summary)
-	sum := sha256.Sum256(body)
-	freshSHA := hex.EncodeToString(sum[:])
-
-	if !force && !archive.ShouldRewriteSummary(meta, freshSHA) {
-		return false, nil
-	}
-
-	if err := archive.WriteAtomic(filepath.Join(folder, "summary.plaud.md"), body); err != nil {
-		return false, fmt.Errorf("writing summary.plaud.md: %w", err)
-	}
-
-	meta.SetSummary(archive.MetaSummary{
-		Filename: "summary.plaud.md",
-		SHA256:   freshSHA,
-	})
-	return true, nil
-}
-
 // emitResults prints per-recording status. Stderr warnings always fire
 // (plain English regardless of --format). Human-readable stdout fires only
 // when jsonMode is false; under --format json the per-recording JSON line
 // is already emitted at completion time by runDownload's onComplete hook.
-func emitResults(stdout, stderr io.Writer, results []recordingResult, jsonMode bool) {
+func emitResults(stdout, stderr io.Writer, results []fetch.Result, jsonMode bool) {
 	for _, r := range results {
-		if r.status == statusFailed {
-			fmt.Fprintf(stderr, "%s: %s\n", r.id, redactErrorString(r.err))
+		if r.Status == fetch.StatusFailed {
+			fmt.Fprintf(stderr, "%s: %s\n", r.ID, redactErrorString(r.Err))
 			continue
 		}
 		if !jsonMode {
-			fmt.Fprintf(stdout, "%s\t%s\t%dms\n", r.id, r.status, r.durationMs)
+			fmt.Fprintf(stdout, "%s\t%s\t%dms\n", r.ID, r.Status, r.DurationMs)
 		}
-		for _, f := range r.files {
+		for _, f := range r.Files {
 			switch f {
 			case "(trashed)":
-				fmt.Fprintf(stderr, "%s: recording is trashed; downloading anyway\n", r.id)
+				fmt.Fprintf(stderr, "%s: recording is trashed; downloading anyway\n", r.ID)
 			case "(transcript-not-ready)":
-				fmt.Fprintf(stderr, "%s: transcript not yet ready, skipped\n", r.id)
+				fmt.Fprintf(stderr, "%s: transcript not yet ready, skipped\n", r.ID)
 			case "(summary-not-ready)":
-				fmt.Fprintf(stderr, "%s: summary not yet ready, skipped\n", r.id)
+				fmt.Fprintf(stderr, "%s: summary not yet ready, skipped\n", r.ID)
 			case "(metadata-rebuilt)":
-				fmt.Fprintf(stderr, "%s: metadata.json was unparseable, rebuilt from local files\n", r.id)
+				fmt.Fprintf(stderr, "%s: metadata.json was unparseable, rebuilt from local files\n", r.ID)
 			}
 		}
 	}
@@ -1026,23 +608,23 @@ func emitResults(stdout, stderr io.Writer, results []recordingResult, jsonMode b
 // marshalJSONResult renders one per-recording result as a single-line JSON
 // object suitable for --format json output. Files are alphabetically sorted
 // per F-12. Sentinel markers (e.g. "(trashed)") are stripped.
-func marshalJSONResult(r recordingResult) ([]byte, error) {
+func marshalJSONResult(r fetch.Result) ([]byte, error) {
 	out := jsonResult{
-		ID:         r.id,
-		Status:     string(r.status),
-		DurationMs: r.durationMs,
+		ID:         r.ID,
+		Status:     string(r.Status),
+		DurationMs: r.DurationMs,
 	}
-	switch r.status {
-	case statusFetched:
-		out.Files = filterAndSortFiles(r.files)
-	case statusSkipped:
-		merged := append([]string{}, r.skippedFiles...)
-		merged = append(merged, r.files...)
+	switch r.Status {
+	case fetch.StatusFetched:
+		out.Files = filterAndSortFiles(r.Files)
+	case fetch.StatusSkipped:
+		merged := append([]string{}, r.Skipped...)
+		merged = append(merged, r.Files...)
 		out.Files = filterAndSortFiles(merged)
-	case statusFailed:
+	case fetch.StatusFailed:
 		out.Files = []string{}
-		if r.err != nil {
-			out.Error = redactErrorString(r.err)
+		if r.Err != nil {
+			out.Error = redactErrorString(r.Err)
 		}
 	}
 	if out.Files == nil {
@@ -1076,16 +658,9 @@ func filterAndSortFiles(in []string) []string {
 	return out
 }
 
-var signedURLPattern = regexp.MustCompile(`https?://[^\s"]+`)
-
-// redactErrorString returns err.Error() with HTTP(S) URLs and any
-// Authorization-style header tokens stripped, per F-13. Errors carrying
-// signed CDN URLs or bearer tokens must never reach stdout/stderr.
+// redactErrorString returns err.Error() with credential-bearing patterns
+// stripped, per F-13. Delegates to api.RedactError so the same patterns
+// apply to spec 0003 sync's surfaces.
 func redactErrorString(err error) string {
-	if err == nil {
-		return ""
-	}
-	s := err.Error()
-	s = signedURLPattern.ReplaceAllString(s, "<redacted-url>")
-	return s
+	return api.RedactError(err)
 }

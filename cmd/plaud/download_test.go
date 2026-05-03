@@ -143,9 +143,10 @@ func newFakePlaud(t *testing.T, recs []fakeRecording) *fakePlaudServer {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
+			wantTrashed := r.URL.Query().Get("is_trash") == "1"
 			items := make([]map[string]any, 0, len(recs))
 			for _, rec := range recs {
-				if rec.isTrash {
+				if rec.isTrash != wantTrashed {
 					continue
 				}
 				items = append(items, map[string]any{
