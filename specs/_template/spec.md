@@ -12,7 +12,7 @@ One-paragraph summary of what this spec delivers and why now. State what is **no
 
 ## 1. Goal
 
-The single sentence this spec exists to deliver. If you can't reduce it to one sentence, the spec is too big — split it.
+The single sentence this spec exists to deliver. If you can't reduce it to one sentence, the spec is too big, so split it.
 
 ## 2. Commands / interfaces
 
@@ -22,7 +22,7 @@ If this spec adds CLI surface, list every command, flag, and observable output h
 |---|---|
 | `plaud <verb>` | What the user types and what they observe. |
 
-If no surface change, write "None — internal change only" and explain in §3 what externally observable difference proves the change works.
+If no surface change, write "None (internal change only)" and explain in §3 what externally observable difference proves the change works.
 
 ## 3. Functional requirements
 
@@ -79,4 +79,4 @@ Per the project's definition of done (see `/CLAUDE.md`), every spec lands with d
 | Technical | `docs/technical/architecture.md` | New internal packages, cross-cutting patterns, decisions worth surfacing. |
 | Technical | `docs/technical/plaud-api.md` | Any new Plaud API endpoint shapes confirmed by this spec. |
 
-If a row above does not apply, write "n/a — <one-sentence reason>" in this section. Empty deliverables get pushed back at review.
+If a row above does not apply, write "n/a (one-sentence reason)" in this section. Empty deliverables get pushed back at review.

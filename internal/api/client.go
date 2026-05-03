@@ -11,9 +11,10 @@ import (
 // operations (auth, list, download) live in sibling files in this package and
 // share the client through the unexported do method.
 type Client struct {
-	baseURL    string
-	token      string
-	httpClient *http.Client
+	baseURL     string
+	token       string
+	httpClient  *http.Client
+	audioClient *http.Client
 }
 
 // Option mutates a Client during construction.
@@ -30,6 +31,13 @@ func WithBaseURL(url string) Option {
 // need transport-level instrumentation.
 func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
+}
+
+// WithAudioHTTPClient swaps the audio-leg http.Client. Intended for tests
+// that need transport-level instrumentation on the unbounded-timeout client
+// used for streaming audio bytes from S3.
+func WithAudioHTTPClient(hc *http.Client) Option {
+	return func(c *Client) { c.audioClient = hc }
 }
 
 // ErrEmptyRegion is returned by New when the region argument is the zero value.
@@ -55,9 +63,10 @@ func New(region Region, token string, opts ...Option) (*Client, error) {
 	}
 
 	c := &Client{
-		baseURL:    base,
-		token:      token,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		baseURL:     base,
+		token:       token,
+		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		audioClient: &http.Client{Timeout: 0},
 	}
 	for _, opt := range opts {
 		opt(c)

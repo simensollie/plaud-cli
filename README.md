@@ -62,9 +62,9 @@ Where credentials are kept:
 
 ## Documentation
 
-- [`docs/user/`](./docs/user/) — install, getting started, command reference, troubleshooting.
-- [`docs/technical/`](./docs/technical/) — architecture, the (undocumented) Plaud API knowledge, contributor pointers.
-- [`docs/README.md`](./docs/README.md) — the docs index.
+- [`docs/user/`](./docs/user/): install, getting started, command reference, troubleshooting.
+- [`docs/technical/`](./docs/technical/): architecture, the (undocumented) Plaud API knowledge, contributor pointers.
+- [`docs/README.md`](./docs/README.md): the docs index.
 
 ## Contributing
 

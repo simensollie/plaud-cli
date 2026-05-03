@@ -31,7 +31,7 @@ specs/
 
 ## File roles
 
-### `spec.md` — the *what*
+### `spec.md`: the *what*
 
 Outcome-based. Describes what the user can do and observe when this spec is done. Stable surface; treat edits as design changes that need justification.
 
@@ -46,7 +46,7 @@ Required sections (the template enforces them):
 7. **Open questions.** Things the spec can't yet decide. Track until resolved or cut.
 8. **Acceptance criteria.** The walk-through that proves the spec is done.
 
-### `plan.md` — the *how, in phases*
+### `plan.md`: the *how, in phases*
 
 Tracer-bullet sequencing. Each phase is the smallest end-to-end slice that delivers user-visible value, with the failing test that drives it.
 
@@ -72,14 +72,14 @@ Format per phase:
 
 Plans are working documents. Edit freely as you learn.
 
-### `notes.md` — the *what we found out*
+### `notes.md`: the *what we found out*
 
 Append-only journal. Captured facts, decisions made during implementation, undocumented API behavior, dead ends, links to network captures, anything a future contributor needs to understand the choices behind the code.
 
 Format:
 
 ```markdown
-## YYYY-MM-DD — short title
+## YYYY-MM-DD: short title
 
 What we learned. Why it matters. Link to evidence (a fixture path, a commit, an external URL).
 ```
@@ -113,11 +113,11 @@ $EDITOR specs/000N-<slug>/spec.md
 
 Fill in:
 
-1. Goal — the one sentence.
-2. Commands / interfaces — only what the user touches.
-3. Functional requirements — numbered, prioritized, outcome-shaped.
-4. Out of scope — explicit, generous. Easier to expand later than to argue about creep now.
-5. Acceptance criteria — what you'll check at the end.
+1. Goal: the one sentence.
+2. Commands / interfaces: only what the user touches.
+3. Functional requirements: numbered, prioritized, outcome-shaped.
+4. Out of scope: explicit, generous. Easier to expand later than to argue about creep now.
+5. Acceptance criteria: what you'll check at the end.
 
 Leave `plan.md` and `notes.md` mostly empty until you start implementing.
 

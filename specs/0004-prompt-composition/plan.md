@@ -1,4 +1,4 @@
-# Plan: Spec 0004 — Prompt composition
+# Plan: Spec 0004: Prompt composition
 
 Tracer-bullet sequencing. Phases below are an outline; concrete failing-test names and code paths are filled in once the spec moves to `Status: Active`.
 
@@ -16,7 +16,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `internal/prompt/context_test.go::TestContext_MissingArchiveReturnsErrNoLocalTranscript`
 
 **Code stub:**
-- `internal/prompt/context.go` — reads `transcript.json` + `metadata.json`, formats values per spec.md §4 table.
+- `internal/prompt/context.go`: reads `transcript.json` + `metadata.json`, formats values per spec.md §4 table.
 
 ---
 
@@ -30,7 +30,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `internal/prompt/render_test.go::TestRender_StrictMissingFieldsErrors` (catches typos in `{{.Trnscript}}`)
 
 **Code stub:**
-- `internal/prompt/render.go` — `Render(body string, ctx PromptContext) (string, error)`.
+- `internal/prompt/render.go`: `Render(body string, ctx PromptContext) (string, error)`.
 
 ---
 
@@ -46,7 +46,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `cmd/plaud/prompt_test.go::TestPrompt_StdinViaInlineDash`
 
 **Code stub:**
-- `cmd/plaud/prompt.go` — Cobra command, options pattern matching `login`/`list`.
+- `cmd/plaud/prompt.go`: Cobra command, options pattern matching `login`/`list`.
 
 ---
 
@@ -63,7 +63,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `cmd/plaud/save_test.go::TestSave_WarnsOnUnusualExtension`
 
 **Code stub:**
-- `cmd/plaud/save.go` — reads stdin, validates filename, writes atomically to the recording folder.
+- `cmd/plaud/save.go`: reads stdin, validates filename, writes atomically to the recording folder.
 
 ---
 

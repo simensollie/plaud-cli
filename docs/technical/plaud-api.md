@@ -27,7 +27,7 @@ A standard JWT (`alg: HS256`, `typ: UT` for "User Token"). Around 270 characters
 
 ### OTP flow (3 calls)
 
-**Step 1 — Region discovery.** `POST https://api.plaud.ai/auth/otp-send-code`
+**Step 1: Region discovery.** `POST https://api.plaud.ai/auth/otp-send-code`
 
 Request:
 
@@ -50,7 +50,7 @@ Response (status 200):
 
 The `data.domains.api` value is the regional host the user's account belongs to.
 
-**Step 2 — Send OTP.** `POST <regional>/auth/otp-send-code`
+**Step 2: Send OTP.** `POST <regional>/auth/otp-send-code`
 
 Same request body as step 1. Response:
 
@@ -65,7 +65,7 @@ Same request body as step 1. Response:
 
 The `token` is a short-lived correlation handle, not the bearer.
 
-**Step 3 — Verify OTP.** `POST <regional>/auth/otp-login`
+**Step 3: Verify OTP.** `POST <regional>/auth/otp-login`
 
 Request:
 
@@ -177,6 +177,162 @@ Response (status 200):
 
 This generalization holds for any other Plaud time field we encounter unless proven otherwise.
 
+### `GET /file/detail/{id}` (recording detail)
+
+The per-recording envelope. Carries readiness flags, the timestamp, the diarization language, and pointers to the derivable artifacts (transcript, summary, outline, consumer note). Auth: `Authorization: bearer <jwt>`. No query parameters, no body.
+
+Response (status 200, `application/json`):
+
+```json
+{
+  "status": 0,
+  "msg": "success",
+  "request_id": "",
+  "data": {
+    "file_id": "<32-hex>",
+    "file_name": "<string>",
+    "file_version": <epoch_seconds>,
+    "duration": <ms>,
+    "is_trash": <bool>,
+    "start_time": <epoch_ms>,
+    "scene": <int>,
+    "serial_number": "<string>",
+    "session_id": <epoch_seconds>,
+    "wait_pull": <int>,
+    "filetag_id_list": [],
+    "content_list": [...],
+    "pre_download_content_list": [...],
+    "download_path_mapping": {},
+    "embeddings": { "Speaker 0": [<256 floats>], ... },
+    "extra_data": {
+      "aiContentHeader": {
+        "language_code": "<2-letter, e.g. no>",
+        "headline": "<string>",
+        "category": "<string>",
+        "summary_id": "<id>",
+        "used_template": {...},
+        "recommend_questions": [...]
+      },
+      "tranConfig": {
+        "language": "<user-selected>",
+        "diarization": 0|1,
+        "llm": "<model_id>",
+        "type": "<string>",
+        "type_type": "<string>",
+        "created_at": "<ISO 8601, no tz>"
+      },
+      "task_id_info": { "outline_task_id": "<id>", "summary_id": "<id>", "trans_task_id": "<id>" }
+    },
+    "has_thought_partner": <bool>
+  }
+}
+```
+
+`extra_data.aiContentHeader.language_code` is the source-of-truth for `metadata.transcript.language`. `embeddings` is a 256-element float array per raw speaker label (voice-identification); ignored in v0.2.
+
+#### `content_list` shape
+
+Array of "artifact pointers". Each entry:
+
+| Key | Type | Notes |
+|---|---|---|
+| `data_id` | string | Format `<type>:<short_hash>:<file_id>`. Used to match against `pre_download_content_list`. |
+| `data_type` | string | See table below. |
+| `task_status` | int | `1` = ready. plaud-cli ignores entries where status is not `1`. |
+| `data_link` | string | Signed S3 URL into the content-storage bucket. `X-Amz-Expires=300` (5 min). |
+| `data_title` | string | May be empty. |
+| `data_tab_name` | string | The web-UI tab name (e.g. `"Summary"`, `"Meeting Highlights"`). |
+| `err_code`, `err_msg` | string | Empty when ok. |
+| `extra` | object | Type-dependent. |
+
+Observed `data_type` values:
+
+| `data_type` | Meaning | S3 key shape | Used in v0.2 |
+|---|---|---|---|
+| `transaction` | Raw transcript segments | `permanent/<user_id_hash>/<member_id>/file_transcript/<file_id>/trans_result.json.gz` | yes |
+| `auto_sum_note` | Plaud-generated summary | `permanent/.../file_summary/<file_id>/ai_content.md.gz` | yes |
+| `outline` | Topic / chapter list | `permanent/.../file_outline/<file_id>/outline.json.gz` | no, deferred to spec 0004 |
+| `consumer_note` | User-editable note overlay | `permanent/.../general/note%3A<short>%3A<note_id>` | no, two-way sync territory |
+
+#### `pre_download_content_list` shape
+
+Subset of artifacts inlined to save a round-trip:
+
+```json
+[ { "data_id": "<matches one in content_list>", "data_content": "<inlined bytes as a string>" } ]
+```
+
+In observed captures only the `auto_sum_note` (summary markdown) was inlined. The decision rule appears to be "inline anything small enough"; transcripts (~5 KB gzipped) were not inlined. plaud-cli's `Detail` resolver checks the inline list first by matching `data_id`, then falls back to a signed-URL fetch only when no inline copy is present.
+
+#### Transcript bytes (separate fetch)
+
+`GET <data_link>` against `euc1-prod-plaud-content-storage.s3.amazonaws.com`. No `Authorization` header (auth is in the URL). Response:
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json` |
+| `Content-Encoding` | `gzip` (Go's `http.Transport` auto-decompresses; raw clients get gzip bytes) |
+| `ETag` | `"<32-hex>"` (MD5 of the gzipped object, not the served bytes) |
+| `x-amz-meta-compressed` | `true` |
+| `x-amz-meta-updated_at` | `<ISO 8601>` (transcript regeneration timestamp) |
+
+Body, after decompression, is a **bare JSON array** (not wrapped). Per-segment shape:
+
+```json
+{
+  "start_time": <ms>,
+  "end_time":   <ms>,
+  "content":    "<spoken text>",
+  "speaker":    "<display name, may match original_speaker>",
+  "original_speaker": "<raw diarizer label, e.g. Speaker 0>"
+}
+```
+
+There is no top-level `language` or `version`; the language comes from `/file/detail`'s `extra_data.aiContentHeader.language_code`. plaud-cli maps this wire shape to the canonical archive shape (`speaker`, `original_speaker`, `start_ms`, `end_ms`, `text`) at ingest, omitting `original_speaker` when equal to `speaker`.
+
+### `GET /file/temp-url/{id}` (signed audio URL)
+
+Returns a one-shot signed S3 URL for the recording's served audio. Auth: `Authorization: bearer <jwt>`. No query parameters, no body.
+
+Response (status 200, `application/json`):
+
+```json
+{
+  "status": 0,
+  "temp_url": "https://euc1-prod-plaud-bucket.s3.amazonaws.com/audiofiles/<file_id>.mp3?X-Amz-Algorithm=...&X-Amz-Credential=...&X-Amz-Date=<YYYYMMDDTHHMMSSZ>&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Security-Token=...&X-Amz-Signature=...",
+  "temp_url_opus": null
+}
+```
+
+`temp_url` is an AWS SigV4 presigned S3 URL, valid 3600 s. `temp_url_opus` (the original `.opus` upload's signed URL) may be `null` even when an `.opus` exists server-side; the audio bucket consistently serves the transcoded `.mp3` via `temp_url`. plaud-cli ignores `temp_url_opus` in v0.2.
+
+#### Audio bytes (separate fetch)
+
+`GET <temp_url>` against `euc1-prod-plaud-bucket.s3.amazonaws.com`. **No `Authorization` header**: forwarding the bearer to AWS would leak it to a third party (F-13). The signed URL strips the header by design. Response:
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `binary/octet-stream` (S3 returns the bucket default, not `audio/mpeg`) |
+| `Content-Length` | served-bytes count |
+| `Accept-Ranges` | `bytes` |
+| `ETag` | `"<32-hex>"`, the MD5 of the served bytes for **single-part uploads only**. Multipart uploads suffix the ETag with `-<N>`; detect and treat as non-MD5 for idempotency. |
+| `Access-Control-Expose-Headers` | `ETag` |
+
+Body is the raw audio bytes.
+
+S3 `ETag` is canonical for F-07(a) idempotency: the served-bytes MD5 is what the local file's `md5sum` will produce, so a HEAD-then-compare lets the CLI skip the GET on a clean re-run. The list response's `file_md5` is the MD5 of Plaud's original `.opus` upload (the bytes Plaud transcoded *from*) and **does not equal the served-bytes MD5**; plaud-cli records it as `metadata.audio.original_upload_md5` for audit and never uses it for idempotency.
+
+### S3 storage hosts
+
+Two distinct S3 buckets, both region-prefixed:
+
+| Bucket | Host | Used for | TTL | ETag semantics |
+|---|---|---|---|---|
+| Audio | `euc1-prod-plaud-bucket.s3.amazonaws.com` | `audiofiles/<file_id>.mp3` (and `.opus` originals) | `X-Amz-Expires=3600` (1 h) | MD5 of served bytes (single-part uploads only) |
+| Content storage | `euc1-prod-plaud-content-storage.s3.amazonaws.com` | gzipped JSON / markdown artifacts under `permanent/...` | `X-Amz-Expires=300` (5 min) | MD5 of the gzipped object (not the decompressed bytes) |
+
+Both use AWS SigV4 with STS session credentials (`X-Amz-Security-Token`). Signed URLs are minted per call to `/file/detail` (content-storage links, four at a time) or `/file/temp-url` (audio link, one). The 300-second content-storage TTL means each per-recording worker must fetch the detail response and follow its `data_link`s back-to-back; pre-batching detail responses across workers risks expiry. F-15 specifies one defensive retry on 401/403 from S3 (signature expiry or single-use); in observed captures URL reuse could not be tested empirically (each was hit exactly once), so the single retry is the right defensive default regardless.
+
 ## Plaud's response envelope
 
 All endpoints we have seen return JSON with at least these top-level fields:
@@ -211,9 +367,8 @@ The web client sends a number of telemetry / routing headers on every authentica
 
 These open questions are tracked in spec notes and resolved as new specs land:
 
-- The audio download endpoint shape (signed URL? direct bytes?). Spec 0002.
-- The transcript and summary endpoints. Spec 0002.
-- Whether `file_md5` in the list response is the audio bytes' MD5 or the upload container's. Affects spec 0002's idempotency story.
+- Whether content-storage signed URLs are single-use or reusable within the 300-second window (cannot be settled from the existing HARs; each was hit exactly once). Affects spec 0003 sync pacing. F-15's single retry on 401/403 is the right defensive default regardless.
+- The trigger endpoints for server-side transcription / summarization (only the polling endpoint `/ai/file-task-status` is captured). Future spec.
 - Pagination behavior at very large page sizes (the web client uses `limit=99999` with no apparent cap).
 - Rate-limit headers / 429 behavior (not seen yet).
 - Whether the Authorization-bearer path remains stable as Plaud rolls out new versions.

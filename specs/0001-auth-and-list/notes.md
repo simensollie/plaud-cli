@@ -1,4 +1,4 @@
-# Notes: Spec 0001 — Authentication and List
+# Notes: Spec 0001 (Authentication and List)
 
 Append-only journal. Newest entry on top. Capture facts, decisions, gotchas, dead ends, links to evidence.
 
@@ -6,7 +6,7 @@ For why this file exists and what to put in it, see `specs/README.md`.
 
 ---
 
-## 2026-05-01 — v0.1.0 released
+## 2026-05-01: v0.1.0 released
 
 Tag `v0.1.0` pushed; GoReleaser produced 6 archives (linux/darwin/windows × amd64/arm64) plus `checksums.txt` at https://github.com/simensollie/plaud-cli/releases/tag/v0.1.0.
 
@@ -24,7 +24,7 @@ These two items aside, v0.1.0 is functionally complete: any user with a Plaud.ai
 
 ---
 
-## 2026-05-01 — First real-API smoke. Bearer auth confirmed. Times are milliseconds.
+## 2026-05-01: First real-API smoke. Bearer auth confirmed. Times are milliseconds.
 
 Phase 6 manual smoke against the user's real EU account succeeded.
 
@@ -38,7 +38,7 @@ This is also a useful generalization for future phases (download, sync): when in
 
 ---
 
-## 2026-05-01 — Phase 4 OTP-login smoke blocked on web "set password"
+## 2026-05-01: Phase 4 OTP-login smoke blocked on web "set password"
 
 User's existing Apple-SSO Plaud account does not have a password set. The web "Set password" UI does not appear to work for this account; user has filed a support ticket with Plaud.
 
@@ -50,13 +50,13 @@ If the support ticket resolves before v0.1 ships, do the OTP smoke then. If not,
 
 ---
 
-## 2026-05-01 — OTP flow captured (full walkthrough from new-account create)
+## 2026-05-01: OTP flow captured (full walkthrough from new-account create)
 
 User captured a second HAR (`create.web.plaud.ai.har`, gitignored) covering an email + OTP login and the post-login flow. This is the spec's target auth path. All endpoints + body shapes documented below.
 
 ### The flow
 
-**Step 1 — Region discovery (global host).**
+**Step 1: Region discovery (global host).**
 `POST https://api.plaud.ai/auth/otp-send-code`
 - Request: `{username: "<email>", user_area: "<2-letter ISO 3166-1 country code, e.g. NO, US, JP>"}`
 - Response: `{status, msg, data: {domains: {api: "https://api-euc1.plaud.ai"}}}`
@@ -65,14 +65,14 @@ User captured a second HAR (`create.web.plaud.ai.har`, gitignored) covering an e
 
 The global host returns the correct regional API host for this user. **Implication:** region auto-detection is feasible. F-AUTH-07 currently asks the user to pick at login; we could instead just ask for email and resolve the region. Out of scope for v0.1 but worth a future spec.
 
-**Step 2 — Send OTP (regional host).**
+**Step 2: Send OTP (regional host).**
 `POST https://api-euc1.plaud.ai/auth/otp-send-code`
 - Request: `{username: "<email>", user_area: "<area-code>"}`
 - Response: `{status, msg, request_id, token: "<one-time exchange token>"}`
 
 The `token` here is **not** the bearer token. It's a one-time identifier tying the email to the in-flight OTP. We hold it client-side and pass it to the next call.
 
-**Step 3 — Verify OTP and obtain access token.**
+**Step 3: Verify OTP and obtain access token.**
 `POST https://api-euc1.plaud.ai/auth/otp-login`
 - Request: `{token: "<from step 2>", code: "<6-digit OTP>", user_area, require_set_password: bool, team_enabled: bool}`
 - Response: `{status, msg, request_id, access_token: "<JWT>", token_type: "bearer", has_password: bool, is_new_user: bool, set_password_token: "<...>" | null}`
@@ -80,7 +80,7 @@ The `token` here is **not** the bearer token. It's a one-time identifier tying t
 - `access_token` is the bearer JWT we persist.
 - If `set_password_token` is present (typically when `is_new_user: true` or `has_password: false`), the user has not yet set a password. The web client forces a password set before the access_token works for protected calls. We do not yet know if the access_token alone is usable in this state.
 
-**Step 4 (only when password unset) — Set password.**
+**Step 4 (only when password unset): Set password.**
 `POST https://api-euc1.plaud.ai/auth/set-password-issue-token`
 - Request: `{password, password_encrypted: bool, set_password_token, user_area, team_enabled}`
 - Response: `{status, msg, request_id, access_token: "<JWT>", token_type: "bearer", login_count_per_hour, login_total_per_hour}`
@@ -119,7 +119,7 @@ Every authenticated GET sends:
 
 Our client should mimic at least `app-platform`, `edit-from`, `x-device-id` (generated once at install, persisted), and `x-request-id` (random per call). `x-pld-user` we cannot send until we've called `/user/me` once after login; we can either pre-fetch on login and store, or fetch lazily on first protected call.
 
-### Bearer-vs-cookie auth question — still open
+### Bearer-vs-cookie auth question (still open)
 
 The HAR still has cookies stripped (Chrome's HAR export default). The web client almost certainly uses session cookies (the otp-login response had `access-control-allow-credentials: true`, which is required for cross-origin credentialed cookies). But the JWT-shaped `access_token` returned by otp-login is the same kind of thing the prior-art tools (`jaisonerick/plaud-cli`, `sergivalverde/plaud-toolkit`, the Obsidian plugin) use as `Authorization: Bearer <jwt>` against the same endpoints.
 
@@ -132,7 +132,7 @@ Decision: ship Phase 2 with `Authorization: bearer <access_token>` and the custo
 
 ---
 
-## 2026-04-30 — Findings from Apple-SSO HAR capture
+## 2026-04-30: Findings from Apple-SSO HAR capture
 
 User captured a HAR from web.plaud.ai during an Apple SSO login. File at `specs/0001-auth-and-list/web.plaud.ai.har` (gitignored, never commit).
 
@@ -142,7 +142,7 @@ User captured a HAR from web.plaud.ai during an Apple SSO login. File at `specs/
 - List response shape: `{data_file_list: [...], data_file_total: N, msg, request_id, status}`. Wrapper, not bare array.
 - Apple SSO callback: `POST /auth/sso-callback` with body `{id_token, sso_from, sso_type, user_area}` returns `{access_token: <273-char JWT>, token_type: "bearer", login_count_per_hour, login_total_per_hour, msg, request_id, status}`.
 - Workspace token: `POST /user-app/auth/workspace/token/{ws_id}` returns `{data: {workspace_token, refresh_token, expires_in: 86400, wt_expires_at, refresh_expires_at, member_id, workspace_id, role, status}}`. Workspace tokens are 548-char strings, ttl 24h.
-- Custom request headers on every authenticated call: `app-language: en`, `app-platform: web`, `edit-from: web`, `x-device-id: [object Object]` (yes, literally — web client bug, server tolerates it), `x-pld-user: <64-hex>`, `x-request-id: <random>`.
+- Custom request headers on every authenticated call: `app-language: en`, `app-platform: web`, `edit-from: web`, `x-device-id: [object Object]` (yes, literally; web client bug, server tolerates it), `x-pld-user: <64-hex>`, `x-request-id: <random>`.
 
 **Important caveat: HAR strips cookies on export.**
 Chrome DevTools redacts the `Cookie` header (and `Set-Cookie`) by default when saving HAR. `:authority`, `:method` etc. are visible but no `Authorization` and no `Cookie` header are present anywhere on api-euc1 calls. The web client almost certainly uses cookie-based session auth set by `Set-Cookie` on `/auth/sso-callback`, which we can't see.
@@ -157,7 +157,7 @@ The 64-hex value (`6370ef50d62844e3...`) appears in the response bodies of `/use
 
 **What's still unknown.**
 - Email+OTP send endpoint (path, body shape).
-- Email+OTP verify endpoint (path, body shape, response field name for the bearer token — likely also `access_token`).
+- Email+OTP verify endpoint (path, body shape, response field name for the bearer token, likely also `access_token`).
 - Whether `Authorization: Bearer` works against api-euc1 endpoints, or whether we must replicate the cookie-based session.
 
 **Plan.**
@@ -167,7 +167,7 @@ The 64-hex value (`6370ef50d62844e3...`) appears in the response bodies of `/use
 
 ---
 
-## 2026-04-30 — Phase 0 complete; Node 20 deprecation deferred
+## 2026-04-30: Phase 0 complete; Node 20 deprecation deferred
 
 Phase 0 done. CI green on Linux + macOS + Windows + lint. F-11 disclaimer tested and shipping in `--help` and README + NOTICE.
 
@@ -175,7 +175,7 @@ Deferred: GitHub Actions emitted a soft deprecation warning that `actions/checko
 
 ---
 
-## 2026-04-30 — Binary name and trademark posture
+## 2026-04-30: Binary name and trademark posture
 
 Decided: binary is `plaud`. Repo stays `plaud-cli`.
 
@@ -185,7 +185,7 @@ Fallback name `plaudr` held in reserve. If we ever need to rename, the migration
 
 ---
 
-## 2026-04-30 — Spec opened
+## 2026-04-30: Spec opened
 
 Initial draft. v0.1 scope deliberately narrow: login, list, logout, version, help. Everything else (download, sync, prompt composition) waits for its own spec.
 

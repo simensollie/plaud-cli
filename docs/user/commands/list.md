@@ -50,5 +50,5 @@ DATE              TITLE                                            DURATION  ID
 
 ## Related
 
-- [`login.md`](./login.md) — getting set up.
-- [`logout.md`](./logout.md) — undoing it.
+- [`login.md`](./login.md): getting set up.
+- [`logout.md`](./logout.md): undoing it.

@@ -1,4 +1,4 @@
-# Notes: Spec 0003 — Sync
+# Notes: Spec 0003: Sync
 
 Append-only journal. Newest entry on top.
 
@@ -6,7 +6,7 @@ For the convention, see `specs/README.md`.
 
 ---
 
-## 2026-05-01 — Spec opened (Draft)
+## 2026-05-01: Spec opened (Draft)
 
 This spec is a thin layer of state-tracking + concurrency on top of spec 0002's per-recording fetch. It cannot move to `Active` until spec 0002 is at least Phase 5 (CLI wired) so the runner has something to call.
 

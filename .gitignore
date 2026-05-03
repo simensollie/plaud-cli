@@ -23,6 +23,9 @@ go.work.sum
 *.har
 *.har.gz
 
+# Per-spec raw resources (real recordings, exported transcripts/summaries with PII)
+specs/*/resources/
+
 # Editor
 .vscode/
 .idea/

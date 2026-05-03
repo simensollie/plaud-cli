@@ -1,4 +1,4 @@
-# Plan: Spec 0001 — Authentication and List
+# Plan: Spec 0001 (Authentication and List)
 
 Tracer-bullet sequencing. Each phase ends with a user-observable behavior plus the failing test(s) that drove it.
 
@@ -11,7 +11,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** `go test ./...` runs (with no tests yet) and CI is green on a no-op build. F-11 disclaimer is in place from day one.
 
 **Failing test first (red):**
-- `cmd/plaud/main_test.go::TestRoot_F11_HelpStatesUnofficial` — runs the root command with `--help`, asserts the long description contains the unofficial disclaimer.
+- `cmd/plaud/main_test.go::TestRoot_F11_HelpStatesUnofficial`: runs the root command with `--help`, asserts the long description contains the unofficial disclaimer.
 
 **Code (green):**
 - `go.mod` (`module github.com/simensollie/plaud-cli`, Go 1.23)
@@ -37,12 +37,12 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** Internal API client constructs correct base URLs per region. No network calls yet.
 
 **Failing tests first (red):**
-- `internal/api/regions_test.go::TestRegions_F01_BaseURLPerRegion` — table test asserting `us` → `https://api.plaud.ai`, `eu` → `https://api-euc1.plaud.ai`, `jp` → `https://api-jp.plaud.ai`. Unknown region returns an error.
-- `internal/api/client_test.go::TestClient_SetsAuthHeader` — when given a token, the client adds `Authorization: bearer <token>` on every request (verified via `httptest.NewServer`).
+- `internal/api/regions_test.go::TestRegions_F01_BaseURLPerRegion`: table test asserting `us` → `https://api.plaud.ai`, `eu` → `https://api-euc1.plaud.ai`, `jp` → `https://api-jp.plaud.ai`. Unknown region returns an error.
+- `internal/api/client_test.go::TestClient_SetsAuthHeader`: when given a token, the client adds `Authorization: bearer <token>` on every request (verified via `httptest.NewServer`).
 
 **Code (green):**
-- `internal/api/regions.go` — `Region` type, `BaseURL(Region) (string, error)`.
-- `internal/api/client.go` — `Client` struct, `New(region, token, opts...) (*Client, error)`, internal `do(req)` that injects the header.
+- `internal/api/regions.go`: `Region` type, `BaseURL(Region) (string, error)`.
+- `internal/api/client.go`: `Client` struct, `New(region, token, opts...) (*Client, error)`, internal `do(req)` that injects the header.
 
 **Done when:**
 - [x] Both tests in red, then green
@@ -60,14 +60,14 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 4. `VerifyOTP` surfaces `ErrPasswordNotSet` when the account has no password (otp-login returned `set_password_token`).
 
 **Failing tests first (red):**
-- `internal/api/auth_test.go::TestDiscoverRegionAPI_F02_PostsCorrectBodyAndReturnsHost` — `httptest.NewServer` asserts method `POST`, path `/auth/otp-send-code`, JSON body `{username, user_area}`. Server returns `{status:0, data:{domains:{api: srv.URL}}}`. Function returns the host.
-- `internal/api/auth_test.go::TestSendOTP_F02_PostsCorrectBodyAndReturnsExchangeToken` — POST to `/auth/otp-send-code`, asserts body shape, server returns `{status:0, token:"exchange-..."}`, function returns `"exchange-..."`.
-- `internal/api/auth_test.go::TestVerifyOTP_F02_ReturnsAccessToken` — POST to `/auth/otp-login`, asserts body fields `{token, code, user_area, require_set_password, team_enabled}`, server returns `{status:0, access_token:"jwt...", token_type:"bearer", has_password:true, is_new_user:false}`, function returns `"jwt..."`.
-- `internal/api/auth_test.go::TestVerifyOTP_F02_PasswordNotSetReturnsTypedError` — server returns `{status:0, set_password_token:"...", access_token:"...", has_password:false}`, function returns `ErrPasswordNotSet` (we conservatively block here rather than trust an access_token before password set).
-- `internal/api/auth_test.go::TestVerifyOTP_F02_BadCodeReturnsTypedError` — server returns `{status:1234, msg:"invalid code"}` (Plaud's pattern: HTTP 200 with non-zero body status), function returns `ErrInvalidOTP`.
+- `internal/api/auth_test.go::TestDiscoverRegionAPI_F02_PostsCorrectBodyAndReturnsHost`: `httptest.NewServer` asserts method `POST`, path `/auth/otp-send-code`, JSON body `{username, user_area}`. Server returns `{status:0, data:{domains:{api: srv.URL}}}`. Function returns the host.
+- `internal/api/auth_test.go::TestSendOTP_F02_PostsCorrectBodyAndReturnsExchangeToken`: POST to `/auth/otp-send-code`, asserts body shape, server returns `{status:0, token:"exchange-..."}`, function returns `"exchange-..."`.
+- `internal/api/auth_test.go::TestVerifyOTP_F02_ReturnsAccessToken`: POST to `/auth/otp-login`, asserts body fields `{token, code, user_area, require_set_password, team_enabled}`, server returns `{status:0, access_token:"jwt...", token_type:"bearer", has_password:true, is_new_user:false}`, function returns `"jwt..."`.
+- `internal/api/auth_test.go::TestVerifyOTP_F02_PasswordNotSetReturnsTypedError`: server returns `{status:0, set_password_token:"...", access_token:"...", has_password:false}`, function returns `ErrPasswordNotSet` (we conservatively block here rather than trust an access_token before password set).
+- `internal/api/auth_test.go::TestVerifyOTP_F02_BadCodeReturnsTypedError`: server returns `{status:1234, msg:"invalid code"}` (Plaud's pattern: HTTP 200 with non-zero body status), function returns `ErrInvalidOTP`.
 
 **Code (green):**
-- `internal/api/auth.go` — package-level `DiscoverRegionAPI`, `SendOTP`, `VerifyOTP`. `AuthOption` (`WithAuthHTTPClient`) for tests. `GlobalAPIBase` constant `https://api.plaud.ai`. Common request envelope helper that decodes Plaud's `{status, msg, ...}` wrapper and surfaces non-zero `status` as a typed error.
+- `internal/api/auth.go`: package-level `DiscoverRegionAPI`, `SendOTP`, `VerifyOTP`. `AuthOption` (`WithAuthHTTPClient`) for tests. `GlobalAPIBase` constant `https://api.plaud.ai`. Common request envelope helper that decodes Plaud's `{status, msg, ...}` wrapper and surfaces non-zero `status` as a typed error.
 - Sentinel errors: `ErrInvalidOTP`, `ErrPasswordNotSet`, `ErrAPIError` (wraps `status` + `msg` for unrecognized codes).
 
 **Done when:**
@@ -82,13 +82,13 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** A token + region + email round-trips through disk, with mode `0600` on POSIX.
 
 **Failing tests first (red):**
-- `internal/auth/credentials_test.go::TestCredentials_F04_RoundTrip` — write, read, assert equal.
-- `internal/auth/credentials_test.go::TestCredentials_F04_File0600OnPOSIX` — skip on Windows; assert `os.Stat(...).Mode().Perm() == 0600`.
-- `internal/auth/credentials_test.go::TestCredentials_F05_FileShape` — JSON contains `token`, `region`, `email`, `obtained_at`. No `password`.
-- `internal/auth/credentials_test.go::TestCredentials_F07_MissingFileReturnsTypedError` — `Load` on absent file returns `ErrNotLoggedIn`.
+- `internal/auth/credentials_test.go::TestCredentials_F04_RoundTrip`: write, read, assert equal.
+- `internal/auth/credentials_test.go::TestCredentials_F04_File0600OnPOSIX`: skip on Windows; assert `os.Stat(...).Mode().Perm() == 0600`.
+- `internal/auth/credentials_test.go::TestCredentials_F05_FileShape`: JSON contains `token`, `region`, `email`, `obtained_at`. No `password`.
+- `internal/auth/credentials_test.go::TestCredentials_F07_MissingFileReturnsTypedError`: `Load` on absent file returns `ErrNotLoggedIn`.
 
 **Code (green):**
-- `internal/auth/credentials.go` — `Credentials` struct, `Save`, `Load`, `Delete`. Path resolution honors `XDG_CONFIG_HOME` on POSIX and `%APPDATA%` on Windows.
+- `internal/auth/credentials.go`: `Credentials` struct, `Save`, `Load`, `Delete`. Path resolution honors `XDG_CONFIG_HOME` on POSIX and `%APPDATA%` on Windows.
 - Sentinel: `ErrNotLoggedIn`.
 
 **Done when:**
@@ -103,12 +103,12 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** Running `plaud login` end-to-end against a fake API server (in tests) and a real Plaud account (manual smoke) writes a valid credentials file.
 
 **Failing tests first (red):**
-- `cmd/plaud/login_test.go::TestLogin_F01_F02_HappyPath` — drives the command with simulated stdin (`region\nemail\ncode\n`) against an `httptest` Plaud, asserts a credentials file lands at the temp `XDG_CONFIG_HOME` with the expected contents.
-- `cmd/plaud/login_test.go::TestLogin_F02_InvalidOTPExitsNonZero` — server 401s on verify, command prints a clear actionable message and exits non-zero.
-- `cmd/plaud/login_test.go::TestLogin_F09_TokenNeverInOutput` — captured stdout / stderr never contains the bearer token.
+- `cmd/plaud/login_test.go::TestLogin_F01_F02_HappyPath`: drives the command with simulated stdin (`region\nemail\ncode\n`) against an `httptest` Plaud, asserts a credentials file lands at the temp `XDG_CONFIG_HOME` with the expected contents.
+- `cmd/plaud/login_test.go::TestLogin_F02_InvalidOTPExitsNonZero`: server 401s on verify, command prints a clear actionable message and exits non-zero.
+- `cmd/plaud/login_test.go::TestLogin_F09_TokenNeverInOutput`: captured stdout / stderr never contains the bearer token.
 
 **Code (green):**
-- `cmd/plaud/login.go` — Cobra command, prompts via `bufio.Scanner` over `cmd.InOrStdin()`, calls `internal/api`, writes via `internal/auth`.
+- `cmd/plaud/login.go`: Cobra command, prompts via `bufio.Scanner` over `cmd.InOrStdin()`, calls `internal/api`, writes via `internal/auth`.
 - Wire into `cmd/plaud/main.go`.
 
 **Done when:**
@@ -123,9 +123,9 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** Users with blocked OTP email or SSO accounts can paste a token and skip the OTP exchange. Region required; no prompts.
 
 **Failing tests first (red):**
-- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagSkipsOTP` — `--token eyJ... --region eu --email me@x` writes a credentials file without any HTTP traffic to the OTP endpoints (verified via `requestCount == 0`).
-- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRequiresRegion` — `--token x --email u@example.com` (no `--region`) exits non-zero.
-- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRejectsEmpty` — `--token=""` exits non-zero.
+- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagSkipsOTP`: `--token eyJ... --region eu --email me@x` writes a credentials file without any HTTP traffic to the OTP endpoints (verified via `requestCount == 0`).
+- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRequiresRegion`: `--token x --email u@example.com` (no `--region`) exits non-zero.
+- `cmd/plaud/login_test.go::TestLogin_F03_TokenFlagRejectsEmpty`: `--token=""` exits non-zero.
 
 **Code (green):**
 - `cmd/plaud/login.go`: `--token`, `--region`, `--email` flags; `runLoginToken` short-circuits the OTP flow.
@@ -142,15 +142,15 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** A logged-in user runs `plaud list` and sees a sorted, human-readable table of every recording on the account.
 
 **Failing tests first (red):**
-- `internal/api/list_test.go::TestList_F06_PaginatesUntilExhausted` — `httptest` returns three pages, client returns concatenated slice.
-- `internal/api/list_test.go::TestList_F06_RecordingShape` — fields populated: id, title, recorded_at, duration_seconds.
-- `cmd/plaud/list_test.go::TestList_F06_TableOutput` — golden file under `testdata/golden/0001/list.txt`. ISO 8601 dates, `HH:MM:SS` durations, sorted newest first.
-- `cmd/plaud/list_test.go::TestList_F07_NotLoggedIn` — no credentials file → exits non-zero with "Not logged in. Run `plaud login` first."
-- `cmd/plaud/list_test.go::TestList_F08_TokenInvalid` — server 401 → exits non-zero with "Token expired or invalid. Run `plaud login` again." No retry.
+- `internal/api/list_test.go::TestList_F06_PaginatesUntilExhausted`: `httptest` returns three pages, client returns concatenated slice.
+- `internal/api/list_test.go::TestList_F06_RecordingShape`: fields populated: id, title, recorded_at, duration_seconds.
+- `cmd/plaud/list_test.go::TestList_F06_TableOutput`: golden file under `testdata/golden/0001/list.txt`. ISO 8601 dates, `HH:MM:SS` durations, sorted newest first.
+- `cmd/plaud/list_test.go::TestList_F07_NotLoggedIn`: no credentials file → exits non-zero with "Not logged in. Run `plaud login` first."
+- `cmd/plaud/list_test.go::TestList_F08_TokenInvalid`: server 401 → exits non-zero with "Token expired or invalid. Run `plaud login` again." No retry.
 
 **Code (green):**
-- `internal/api/list.go` — `List(ctx) ([]Recording, error)`, handles pagination.
-- `cmd/plaud/list.go` — loads credentials, calls `List`, formats the table.
+- `internal/api/list.go`: `List(ctx) ([]Recording, error)`, handles pagination.
+- `cmd/plaud/list.go`: loads credentials, calls `List`, formats the table.
 
 **Done when:**
 - [x] Six tests green (api: paginates, shape, 401-typed; cmd: table output, not-logged-in, token-invalid no-retry)
@@ -167,7 +167,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 - `cmd/plaud/logout_test.go::TestLogout_IdempotentWhenAlreadyLoggedOut`
 
 **Code (green):**
-- `cmd/plaud/logout.go` — calls `internal/auth.Delete()`.
+- `cmd/plaud/logout.go`: calls `internal/auth.Delete()`.
 
 **Done when:**
 - [x] Both tests green
