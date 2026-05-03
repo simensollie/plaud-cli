@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Created:** 2026-05-01
-**Updated:** 2026-05-02
+**Updated:** 2026-05-03
 **Owner:** @simensollie
 **Target version:** v0.2
 
@@ -194,7 +194,7 @@ The other questions from prior drafts are now closed: Q1-Q4 (audio endpoint, tra
 5. **Partial failure.** `plaud download <bad-id> <good-id>` exits non-zero, prints a clear per-recording error for `<bad-id>` to stderr (with the ID and underlying API error), and successfully fetches `<good-id>`.
 6. **Selective include.** `plaud download <id> --include audio` writes `audio.mp3` and `metadata.json` only; no transcript or summary files. (`metadata.json` is always written when any artifact lands.)
 7. **Format selection.** `plaud download <id> --transcript-format json,srt` writes `transcript.json` and `transcript.srt`; the SRT validates against an SRT linter. `transcript.md` is *not* written (the flag replaces the default).
-8. **Token rotation mid-run.** A 401 surfacing partway through a multi-ID run cancels the parent context, prints the spec's actionable message once, exits non-zero, and does not produce any further per-recording errors from the queued IDs.
+8. **Token rotation mid-run.** A 401 surfacing partway through a multi-ID run cancels the parent context, exits non-zero, and prints the actionable message ("Token expired or invalid. Run `plaud login` again.") exactly once on stderr. Queued IDs are reported as `cancelled` (no repeated auth-error lines on either stream; in `--format json` mode their JSON line carries `error: "cancelled"`).
 9. **Partial server state.** A recording with `is_trans=false` is downloaded; the folder contains `summary.plaud.md` and `metadata.json` (no transcript files); stderr carries the F-19 warning; exit code is 0.
 10. **Trashed direct-ID.** A direct 32-hex ID for a recording with `is_trash=true` downloads normally; stderr carries the F-17 warning. The same recording cannot be reached by title prefix.
 11. **`--force` semantics.** `plaud download <id> --force` against an unchanged recording rewrites every canonical file with byte-identical content, bumps both `fetched_at` and `last_verified_at` in `metadata.json`, and re-downloads `audio.mp3` if it is in the include set.

@@ -6,6 +6,14 @@ For the convention, see `specs/README.md`.
 
 ---
 
+## 2026-05-03: §8.8 wording tightened pre-Done
+
+Original §8.8 read "does not produce any further per-recording errors from the queued IDs", which the implementation technically violates: queued IDs each emit a `<id>: cancelled` line on stderr (and a `{...,"error":"cancelled"}` JSON line under `--format json`). The implementation's behavior is the right behavior (one auth-message banner, then a clear per-ID cancellation acknowledgement), but the literal spec wording was overshooting.
+
+Per CLAUDE.md "When the spec is wrong": tightened §8.8 to describe exactly what the implementation does ("queued IDs are reported as `cancelled` ... no repeated auth-error lines"), keeping the original intent (no spam, single auth banner). This is a precision fix, not an acceptance-bar lowering.
+
+---
+
 ## 2026-05-03: Plaud's list endpoint server-side-filters trashed recordings
 
 Discovered during the §8.10 smoke walk. With one recording moved to trash via the web UI, querying `/file/simple/web?skip=0&limit=200`:
