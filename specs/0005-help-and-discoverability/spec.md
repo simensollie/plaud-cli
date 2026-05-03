@@ -90,7 +90,7 @@ Unchanged from spec 0001. Cobra has built-in completion generation (`cmd.GenBash
 | 3 | First-run hint: should it print on `plaud list`, or on every non-login/help command? Currently `list` is the only authenticated command; v0.2 (download) adds another. | Print the hint on any authenticated command that hits `ErrNotLoggedIn`. Keeps the rule mechanical: no creds → hint → exit. |
 | 4 | `plaud help auth` content: should it walk the Apple/Google SSO localStorage path step-by-step, including DevTools instructions? | Yes for v0.2. The non-developer audience does not know what DevTools is; we name the menu items. Counterargument: this content can drift if Plaud changes their web app. Mitigation: a screen-grab-free, prose-only walkthrough ages slower than one with screenshots. |
 | 5 | Norwegian translations: ship in v0.2 or defer? | Defer. Translating six topic files is a meaningful chunk of work and benefits from a native reviewer. v0.2 ships English; translation is its own future spec (call it 0006-i18n). |
-| 6 | Should `plaud help` (no topic) suggest the most common next command for a first-time user? | Yes — a one-line tip at the bottom of the default help: `Tip: new here? Run 'plaud help auth' to set up authentication.` Suppress when credentials exist. |
+| 6 | Should `plaud help` (no topic) suggest the most common next command for a first-time user? | Yes, a one-line tip at the bottom of the default help: `Tip: new here? Run 'plaud help auth' to set up authentication.` Suppress when credentials exist. |
 
 ## 8. Acceptance criteria
 

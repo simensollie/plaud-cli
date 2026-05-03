@@ -1,4 +1,4 @@
-# Plan: Spec NNNN — <short title>
+# Plan: Spec NNNN: <short title>
 
 Tracer-bullet sequencing. Each phase ends with a user-observable behavior plus the failing test(s) that drove it. Edit freely as you learn.
 
@@ -11,10 +11,10 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 **Outcome:** what the user (or the developer) can do after this phase.
 
 **Failing tests first (red):**
-- `<package>/<file>_test.go::Test<Thing>_F<NN>_<aspect>` — what it asserts.
+- `<package>/<file>_test.go::Test<Thing>_F<NN>_<aspect>`: what it asserts.
 
 **Code (green):**
-- `<package>/<file>.go` — minimal change to pass the test.
+- `<package>/<file>.go`: minimal change to pass the test.
 
 **Done when:**
 - [ ] Tests in red, then green

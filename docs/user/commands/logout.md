@@ -35,4 +35,4 @@ This command rarely errors. If it does, the message will name the file path that
 
 ## Related
 
-- [`login.md`](./login.md) — getting set up again after a logout.
+- [`login.md`](./login.md): getting set up again after a logout.

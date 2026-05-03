@@ -1,4 +1,4 @@
-# Plan: Spec 0005 — Help and discoverability
+# Plan: Spec 0005: Help and discoverability
 
 Tracer-bullet sequencing. Phases below are an outline; concrete failing-test names and code paths fill in once the spec moves to `Status: Active`.
 
@@ -32,8 +32,8 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 
 **Code stub:**
 - `cmd/plaud/help/auth.md` (placeholder content; real content in Phase 2)
-- `cmd/plaud/help/embed.go` — `//go:embed *.md` + `topics() map[string]string`
-- `cmd/plaud/help.go` — Cobra subcommand override that handles topics; falls through to Cobra's default for command names.
+- `cmd/plaud/help/embed.go`: `//go:embed *.md` + `topics() map[string]string`
+- `cmd/plaud/help.go`: Cobra subcommand override that handles topics; falls through to Cobra's default for command names.
 
 ---
 
@@ -74,7 +74,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `cmd/plaud/completion_test.go::TestCompletion_F04_PowershellScriptHeader`
 
 **Code stub:**
-- `cmd/plaud/completion.go` — Cobra builtin via `cmd.GenBashCompletion(stdout)` etc.
+- `cmd/plaud/completion.go`: Cobra builtin via `cmd.GenBashCompletion(stdout)` etc.
 
 ---
 
@@ -101,7 +101,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `cmd/plaud/help_test.go::TestHelp_F06_TipSuppressedWhenLoggedIn`
 
 **Code stub:**
-- `cmd/plaud/help.go` — Cobra `HelpFunc` override on root.
+- `cmd/plaud/help.go`: Cobra `HelpFunc` override on root.
 
 ---
 

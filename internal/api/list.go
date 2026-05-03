@@ -28,11 +28,15 @@ type Recording struct {
 	IsTrash       bool
 	HasTranscript bool
 	HasSummary    bool
+	// FileMD5 is the MD5 of Plaud's original .opus upload. Recorded for audit
+	// (metadata.audio.original_upload_md5); never used as an idempotency key
+	// because the served audio bytes are .mp3, not .opus. F-07(a).
+	FileMD5 string
 }
 
 // rawRecording mirrors the JSON wire format. Kept narrow to the fields the
-// CLI uses; the API exposes more (file_md5, scene, version_ms, etc.) but we
-// add them only when a feature needs them.
+// CLI uses; the API exposes more (scene, version_ms, etc.) but we add them
+// only when a feature needs them.
 type rawRecording struct {
 	ID        string `json:"id"`
 	Filename  string `json:"filename"`
@@ -41,6 +45,7 @@ type rawRecording struct {
 	IsTrash   bool   `json:"is_trash"`
 	IsTrans   bool   `json:"is_trans"`
 	IsSummary bool   `json:"is_summary"`
+	FileMD5   string `json:"file_md5"`
 }
 
 func (r rawRecording) toRecording() Recording {
@@ -56,6 +61,7 @@ func (r rawRecording) toRecording() Recording {
 		IsTrash:       r.IsTrash,
 		HasTranscript: r.IsTrans,
 		HasSummary:    r.IsSummary,
+		FileMD5:       r.FileMD5,
 	}
 }
 

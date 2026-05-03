@@ -1,4 +1,4 @@
-# Plan: Spec 0003 — Sync
+# Plan: Spec 0003: Sync
 
 Tracer-bullet sequencing. Phases below are an outline; concrete failing-test names and code paths are filled in once the spec moves to `Status: Active`.
 
@@ -16,7 +16,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `internal/sync/state_test.go::TestState_F13_NoTokenInState`
 
 **Code stub:**
-- `internal/sync/state.go` — `Load(root) (*State, error)`, `Save(root, *State) error`, atomic via tmp+rename. Schema versioning baked in.
+- `internal/sync/state.go`: `Load(root) (*State, error)`, `Save(root, *State) error`, atomic via tmp+rename. Schema versioning baked in.
 
 ---
 
@@ -32,7 +32,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `internal/sync/reconcile_test.go::TestReconcile_StaleVersionRefetches` (open question Q5)
 
 **Code stub:**
-- `internal/sync/reconcile.go` — pure function, no IO.
+- `internal/sync/reconcile.go`: pure function, no IO.
 
 ---
 
@@ -48,7 +48,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `internal/sync/runner_test.go::TestRunner_F04_ResumableAfterSIGINT`
 
 **Code stub:**
-- `internal/sync/runner.go` — `Run(ctx, list, state, opts) Result`.
+- `internal/sync/runner.go`: `Run(ctx, list, state, opts) Result`.
 
 ---
 
@@ -98,7 +98,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`. This
 - `cmd/plaud/sync_test.go::TestSync_F05_WatchExitsOnSIGINT`
 
 **Code stub:**
-- `cmd/plaud/sync.go` — adds the loop branch.
+- `cmd/plaud/sync.go`: adds the loop branch.
 
 ---
 

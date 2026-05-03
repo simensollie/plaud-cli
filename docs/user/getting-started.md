@@ -91,7 +91,7 @@ This deletes the local credentials file. Your Plaud account itself is untouched.
 
 ## What's next
 
-- [`commands/login.md`](./commands/login.md) — full login reference.
-- [`commands/list.md`](./commands/list.md) — full list reference.
-- [`commands/logout.md`](./commands/logout.md) — full logout reference.
-- [`troubleshooting.md`](./troubleshooting.md) — what to do when something goes wrong.
+- [`commands/login.md`](./commands/login.md): full login reference.
+- [`commands/list.md`](./commands/list.md): full list reference.
+- [`commands/logout.md`](./commands/logout.md): full logout reference.
+- [`troubleshooting.md`](./troubleshooting.md): what to do when something goes wrong.

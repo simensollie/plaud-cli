@@ -72,5 +72,5 @@ See [`troubleshooting.md`](../troubleshooting.md) for deeper recovery steps.
 
 ## Related
 
-- [`list.md`](./list.md) — what to do once you are logged in.
-- [`logout.md`](./logout.md) — undoing this command.
+- [`list.md`](./list.md): what to do once you are logged in.
+- [`logout.md`](./logout.md): undoing this command.
