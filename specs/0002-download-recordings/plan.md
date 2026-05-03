@@ -15,13 +15,15 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 2. Triggers an audio download / play.
 3. "Copy as cURL (bash)" on the relevant requests, redacted into `notes.md`.
 
+**Status:** Done 2026-05-02
+
 **Done when:**
-- [ ] Audio download request (method, path, response body type) documented.
-- [ ] Transcript request shape documented (segments inline vs subfetch).
-- [ ] Summary request shape documented.
-- [ ] Whether `file_md5` matches the served audio bytes' MD5 is empirically tested (Q4).
-- [ ] Whether signed URLs are single-use is empirically tested (Q7).
-- [ ] If a Plaud "generate transcript / summary" trigger is observable in DevTools, capture its endpoint into `notes.md` for the future generation spec (out of 0002 scope).
+- [x] Audio download request (method, path, response body type) documented.
+- [x] Transcript request shape documented (segments inline vs subfetch).
+- [x] Summary request shape documented.
+- [x] Whether `file_md5` matches the served audio bytes' MD5 is empirically tested (Q4).
+- [x] Whether signed URLs are single-use is empirically tested (Q7).
+- [x] If a Plaud "generate transcript / summary" trigger is observable in DevTools, capture its endpoint into `notes.md` for the future generation spec (out of 0002 scope).
 
 ---
 
@@ -72,7 +74,7 @@ For coding rules, TDD discipline, and "fail fast" stance, see `/CLAUDE.md`.
 
 **Done when:**
 - [x] `Client.TempURL` wraps `/file/temp-url/{id}` and returns the signed URL (`temp_url_opus` ignored in v0.2).
-- [x] `Client.HeadAudio` returns `{ETag, SizeBytes}` from S3 HEAD; ETag is unquoted.
+- [x] `Client.ProbeAudio` returns `{ETag, SizeBytes}` via a one-byte ranged GET (`Range: bytes=0-0`) against S3; ETag is unquoted, total size is parsed from `Content-Range` because the 206's `Content-Length` is the chunk length. (Plaud's `temp_url` is signed for `GET` only, so a real HTTP `HEAD` returns 403; see notes.md 2026-05-03.)
 - [x] `Client.DownloadAudio` streams bytes through `io.MultiWriter(dst, md5.New())`, returns `(n, etag, localMD5, err)`. For single-part uploads `localMD5 == etag`.
 - [x] `audioClient` field added to `Client` with `Timeout: 0` (no total cap); `WithAudioHTTPClient` option for tests; existing `httpClient` and `do` unchanged.
 - [x] F-13: no `Authorization` sent to S3 (verified by tests that fail if any auth header reaches the server).

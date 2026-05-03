@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,8 +22,10 @@ var ErrSignedURLExpired = errors.New("signed S3 URL expired or invalid (HTTP 401
 // reads (F-15). Tests override via downloadOption.
 const defaultAudioIdleTimeout = 30 * time.Second
 
-// AudioHead is the result of a HEAD against the signed audio URL.
-type AudioHead struct {
+// AudioProbe is the result of a metadata-only probe against the signed
+// audio URL: enough to compare ETag for F-07(a) idempotency without
+// streaming the bytes.
+type AudioProbe struct {
 	// ETag is canonical for F-07(a) idempotency. The S3-quoted form is
 	// unquoted before the value lands here.
 	ETag      string
@@ -41,31 +44,46 @@ func withIdleTimeout(d time.Duration) downloadOption {
 	return func(c *downloadConfig) { c.idleTimeout = d }
 }
 
-// HeadAudio HEADs the signed S3 URL and extracts the ETag and Content-Length.
-// Never sends Authorization (S3 auth is in the URL).
-func (c *Client) HeadAudio(ctx context.Context, signedURL string) (*AudioHead, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, signedURL, nil)
+// ProbeAudio fetches just enough of the signed S3 object to read its ETag
+// and total size, without streaming the full body. Plaud's temp_url is a
+// SigV4 presigned URL signed for GET only (the HTTP method is part of the
+// signature canonical), so a real HTTP HEAD against it returns 403. We
+// issue a one-byte ranged GET instead: S3 honours it with 206 Partial
+// Content and exposes the total length in Content-Range. Never sends
+// Authorization (S3 auth is in the URL).
+func (c *Client) ProbeAudio(ctx context.Context, signedURL string) (*AudioProbe, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, signedURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("building HEAD audio request: %w", err)
+		return nil, fmt.Errorf("building probe audio request: %w", err)
 	}
+	req.Header.Set("Range", "bytes=0-0")
 
 	resp, err := c.audioClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("HEAD audio: %w", err)
+		return nil, fmt.Errorf("probe audio: %w", err)
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return nil, ErrSignedURLExpired
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HEAD audio: http %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("probe audio: http %d", resp.StatusCode)
 	}
 
-	return &AudioHead{
+	size := resp.ContentLength
+	if resp.StatusCode == http.StatusPartialContent {
+		if total, ok := parseContentRangeTotal(resp.Header.Get("Content-Range")); ok {
+			size = total
+		}
+	}
+
+	return &AudioProbe{
 		ETag:      unquoteETag(resp.Header.Get("ETag")),
-		SizeBytes: resp.ContentLength,
+		SizeBytes: size,
 	}, nil
 }
 
@@ -120,4 +138,23 @@ func (c *Client) DownloadAudio(ctx context.Context, signedURL string, dst io.Wri
 // S3 always quotes ETag values; the comparison-friendly form is unquoted.
 func unquoteETag(v string) string {
 	return strings.Trim(v, `"`)
+}
+
+// parseContentRangeTotal extracts the total-size component from a
+// Content-Range header of the form "bytes 0-0/<total>". Returns false if
+// the header is missing or malformed.
+func parseContentRangeTotal(v string) (int64, bool) {
+	i := strings.LastIndex(v, "/")
+	if i < 0 || i == len(v)-1 {
+		return 0, false
+	}
+	tail := v[i+1:]
+	if tail == "*" {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(tail, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }

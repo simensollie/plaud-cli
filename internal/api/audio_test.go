@@ -25,19 +25,25 @@ var fakeAudioMD5 = func() string {
 	return hex.EncodeToString(h[:])
 }()
 
-func TestAudio_F07_HEADReturnsETag(t *testing.T) {
+func TestAudio_F07_ProbeReturnsETagAndTotalSize(t *testing.T) {
 	const wantSize int64 = 4465808
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "" {
-			t.Errorf("HEAD audio carried Authorization header: %q", r.Header.Get("Authorization"))
+			t.Errorf("probe audio carried Authorization header: %q", r.Header.Get("Authorization"))
 		}
-		if r.Method != http.MethodHead {
-			http.Error(w, "expected HEAD", http.StatusBadRequest)
+		if r.Method != http.MethodGet {
+			http.Error(w, "expected GET", http.StatusBadRequest)
+			return
+		}
+		if got := r.Header.Get("Range"); got != "bytes=0-0" {
+			http.Error(w, fmt.Sprintf("expected Range bytes=0-0, got %q", got), http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("ETag", `"9c0d80abcdef9c0d80abcdef9c0d80ab"`)
-		w.Header().Set("Content-Length", strconv.FormatInt(wantSize, 10))
-		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-0/%d", wantSize))
+		w.Header().Set("Content-Length", "1")
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write([]byte{0x00})
 	}))
 	t.Cleanup(srv.Close)
 
@@ -46,15 +52,15 @@ func TestAudio_F07_HEADReturnsETag(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	head, err := c.HeadAudio(context.Background(), srv.URL+"/audiofiles/foo.mp3")
+	probe, err := c.ProbeAudio(context.Background(), srv.URL+"/audiofiles/foo.mp3")
 	if err != nil {
-		t.Fatalf("HeadAudio: %v", err)
+		t.Fatalf("ProbeAudio: %v", err)
 	}
-	if head.ETag != "9c0d80abcdef9c0d80abcdef9c0d80ab" {
-		t.Errorf("ETag = %q, want unquoted hex", head.ETag)
+	if probe.ETag != "9c0d80abcdef9c0d80abcdef9c0d80ab" {
+		t.Errorf("ETag = %q, want unquoted hex", probe.ETag)
 	}
-	if head.SizeBytes != wantSize {
-		t.Errorf("SizeBytes = %d, want %d", head.SizeBytes, wantSize)
+	if probe.SizeBytes != wantSize {
+		t.Errorf("SizeBytes = %d, want %d (total from Content-Range, not chunk)", probe.SizeBytes, wantSize)
 	}
 }
 
@@ -123,16 +129,20 @@ func TestAudio_F13_DoesNotSendAuthorizationToS3(t *testing.T) {
 			t.Errorf("S3 leg saw Authorization header: %q", r.Header.Get("Authorization"))
 		}
 		w.Header().Set("ETag", `"`+fakeAudioMD5+`"`)
+		if r.Method == http.MethodGet && r.Header.Get("Range") == "bytes=0-0" {
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 0-0/%d", len(fakeAudioBody)))
+			w.Header().Set("Content-Length", "1")
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write([]byte{fakeAudioBody[0]})
+			return
+		}
 		w.Header().Set("Content-Length", strconv.Itoa(len(fakeAudioBody)))
-		switch r.Method {
-		case http.MethodHead:
-			w.WriteHeader(http.StatusOK)
-		case http.MethodGet:
+		if r.Method == http.MethodGet {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(fakeAudioBody))
-		default:
-			http.Error(w, "unexpected method", http.StatusBadRequest)
+			return
 		}
+		http.Error(w, "unexpected method", http.StatusBadRequest)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -141,8 +151,8 @@ func TestAudio_F13_DoesNotSendAuthorizationToS3(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	if _, err := c.HeadAudio(context.Background(), srv.URL+"/audio.mp3"); err != nil {
-		t.Fatalf("HeadAudio: %v", err)
+	if _, err := c.ProbeAudio(context.Background(), srv.URL+"/audio.mp3"); err != nil {
+		t.Fatalf("ProbeAudio: %v", err)
 	}
 	var buf bytes.Buffer
 	if _, _, _, err := c.DownloadAudio(context.Background(), srv.URL+"/audio.mp3", &buf); err != nil {

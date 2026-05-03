@@ -815,21 +815,21 @@ func fetchAudio(
 		return false, false, fmt.Errorf("fetching audio URL: %w", err)
 	}
 
-	head, err := client.HeadAudio(ctx, signedURL)
+	probe, err := client.ProbeAudio(ctx, signedURL)
 	if errors.Is(err, api.ErrSignedURLExpired) {
 		signedURL, err = client.TempURL(ctx, rec.ID)
 		if err != nil {
 			return false, false, fmt.Errorf("refetching audio URL: %w", err)
 		}
-		head, err = client.HeadAudio(ctx, signedURL)
+		probe, err = client.ProbeAudio(ctx, signedURL)
 		if err != nil {
-			return false, false, fmt.Errorf("HEAD audio after retry: %w", err)
+			return false, false, fmt.Errorf("probing audio after retry: %w", err)
 		}
 	} else if err != nil {
-		return false, false, fmt.Errorf("HEAD audio: %w", err)
+		return false, false, fmt.Errorf("probing audio: %w", err)
 	}
 
-	if !force && meta.Audio != nil && head.ETag != "" && head.ETag == meta.Audio.S3ETag {
+	if !force && meta.Audio != nil && probe.ETag != "" && probe.ETag == meta.Audio.S3ETag {
 		return false, true, nil
 	}
 

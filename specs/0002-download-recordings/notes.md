@@ -6,6 +6,20 @@ For the convention, see `specs/README.md`.
 
 ---
 
+## 2026-05-03: Plaud's `temp_url` is signed for GET only; HEAD returns 403
+
+Discovered during the §8.2 smoke walk. The Phase 0 capture entry below claims HEAD against `temp_url` works; that was wrong. AWS SigV4 presigned URLs include the HTTP method in the canonical request, and Plaud's backend signs for `GET`, so `HEAD` against the same URL fails the signature check.
+
+Empirical verification (fresh signed URL, real account):
+- `curl -I <url>` → `403 Forbidden` (`Content-Type: application/xml`, S3 SignatureDoesNotMatch envelope).
+- `curl -H 'Range: bytes=0-0' <url>` → `206 Partial Content` with full headers including `ETag`, `Content-Range: bytes 0-0/<total>`, `Last-Modified`, `Accept-Ranges: bytes`.
+
+Fix landed in `internal/api/audio.go`: the idempotency probe is a one-byte ranged `GET` instead of `HEAD`. Total size is parsed from `Content-Range` (the 206's `Content-Length` is the chunk length, not the object size). The function and result type are renamed `HeadAudio`/`AudioHead` → `ProbeAudio`/`AudioProbe` for honesty. The F-15 `ErrSignedURLExpired`-then-refetch-once retry path is unchanged and still applies (now triggered by 401/403 on the ranged GET).
+
+Knock-on: the 2026-05-02 design grilling section below proposed a "cheap `HEAD` on the signed `temp_url`" as the F-07(a) idempotency mechanism. Treat those paragraphs as historical context only; the live implementation now uses the ranged-GET probe described above. The browser in the Phase 0 capture session never actually issued `HEAD`; it streamed via `GET` and the design discussion assumed S3's general HEAD capability would carry over to a presigned URL. SigV4 signing makes that assumption wrong.
+
+---
+
 ## 2026-05-02: Spec example correction: `kickoff_møte` slug
 
 The §4 metadata.json example in `spec.md` previously read `"title_slug": "kickoff_m_te"`. That value is wrong: the F-03 slug rules apply `ø → o` *before* NFKD, so `"Kickoff møte"` folds to `"kickoff_mote"` (the implementation in `slug.go` already produced this; the test fixture in `internal/archive/slug_test.go::TestSlug_F03_NorwegianFolding` already covered `"Sjær på Gøteborg" → "sjaer_pa_goteborg"`, which exercises the same `ø` codepoint).
