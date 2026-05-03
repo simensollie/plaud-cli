@@ -81,7 +81,43 @@ DATE              TITLE                                            DURATION  ID
 
 If the table is empty, you have no recordings on the account; create one with your Plaud device and try again.
 
-## Step 4: log out (when you are done)
+## Step 4: download a single recording
+
+Pick an ID from the `plaud list` output (the 32-hex string in the last column) and grab one recording into `~/PlaudArchive`:
+
+```bash
+plaud download e1d9aa6c83378b3182cbc20e94b3c6de
+```
+
+Default contents are the transcript (canonical JSON plus rendered markdown), Plaud's own summary, and a `metadata.json` bookkeeping file. Audio is opt-in — pass `--include audio,transcript,summary,metadata` if you want the bytes too.
+
+You can also resolve by case-insensitive title prefix:
+
+```bash
+plaud download "kickoff meeting"
+```
+
+See [`commands/download.md`](./commands/download.md) for the full reference.
+
+## Step 5: mirror your whole account
+
+For "I want every recording on my account, kept current," use `plaud sync`:
+
+```bash
+plaud sync
+```
+
+Same default include set (text only). The first run fetches everything; subsequent runs are idempotent and fast (one `list` API call plus a state-file rewrite if nothing changed). For continuous polling during a desk session:
+
+```bash
+plaud sync --watch --interval 15m
+```
+
+For unattended scheduling (cron, launchd, systemd, Task Scheduler), see [`scheduling.md`](./scheduling.md). Watch mode is foreground only and ties to your terminal.
+
+See [`commands/sync.md`](./commands/sync.md) for the full reference, including pruning, dry-run, and the NDJSON event stream.
+
+## Step 6: log out (when you are done)
 
 ```bash
 plaud logout
@@ -93,5 +129,8 @@ This deletes the local credentials file. Your Plaud account itself is untouched.
 
 - [`commands/login.md`](./commands/login.md): full login reference.
 - [`commands/list.md`](./commands/list.md): full list reference.
+- [`commands/download.md`](./commands/download.md): full download reference.
+- [`commands/sync.md`](./commands/sync.md): full sync reference.
 - [`commands/logout.md`](./commands/logout.md): full logout reference.
+- [`scheduling.md`](./scheduling.md): run sync unattended.
 - [`troubleshooting.md`](./troubleshooting.md): what to do when something goes wrong.

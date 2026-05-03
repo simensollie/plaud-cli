@@ -11,11 +11,11 @@ Download the archive for your platform from the [Releases page](https://github.c
 ```bash
 # Apple Silicon (M1/M2/M3/M4)
 curl -fsSL -o plaud.tar.gz \
-  https://github.com/simensollie/plaud-cli/releases/download/v0.1.0/plaud-cli_0.1.0_darwin_arm64.tar.gz
+  https://github.com/simensollie/plaud-cli/releases/download/v0.2.0/plaud-cli_0.2.0_darwin_arm64.tar.gz
 
 # Intel
 # curl -fsSL -o plaud.tar.gz \
-#   https://github.com/simensollie/plaud-cli/releases/download/v0.1.0/plaud-cli_0.1.0_darwin_amd64.tar.gz
+#   https://github.com/simensollie/plaud-cli/releases/download/v0.2.0/plaud-cli_0.2.0_darwin_amd64.tar.gz
 
 tar -xzf plaud.tar.gz plaud
 mkdir -p ~/.local/bin && mv plaud ~/.local/bin/
@@ -29,11 +29,11 @@ If `~/.local/bin` is not on your `PATH`, add it to your shell profile (`~/.zshrc
 ```bash
 # x86_64
 curl -fsSL -o plaud.tar.gz \
-  https://github.com/simensollie/plaud-cli/releases/download/v0.1.0/plaud-cli_0.1.0_linux_amd64.tar.gz
+  https://github.com/simensollie/plaud-cli/releases/download/v0.2.0/plaud-cli_0.2.0_linux_amd64.tar.gz
 
 # ARM (Raspberry Pi etc.)
 # curl -fsSL -o plaud.tar.gz \
-#   https://github.com/simensollie/plaud-cli/releases/download/v0.1.0/plaud-cli_0.1.0_linux_arm64.tar.gz
+#   https://github.com/simensollie/plaud-cli/releases/download/v0.2.0/plaud-cli_0.2.0_linux_arm64.tar.gz
 
 tar -xzf plaud.tar.gz plaud
 mkdir -p ~/.local/bin && mv plaud ~/.local/bin/
@@ -45,9 +45,9 @@ plaud --version
 In PowerShell:
 
 ```powershell
-$tag = "v0.1.0"
+$tag = "v0.2.0"
 $arch = "amd64"   # or "arm64"
-$url  = "https://github.com/simensollie/plaud-cli/releases/download/$tag/plaud-cli_0.1.0_windows_$arch.zip"
+$url  = "https://github.com/simensollie/plaud-cli/releases/download/$tag/plaud-cli_0.2.0_windows_$arch.zip"
 
 Invoke-WebRequest -Uri $url -OutFile plaud.zip
 Expand-Archive plaud.zip -DestinationPath .
@@ -61,7 +61,7 @@ Move `plaud.exe` somewhere on your `PATH`. The simplest spot for a per-user inst
 Each release ships a `checksums.txt` listing the SHA-256 of every archive.
 
 ```bash
-curl -fsSL -O https://github.com/simensollie/plaud-cli/releases/download/v0.1.0/checksums.txt
+curl -fsSL -O https://github.com/simensollie/plaud-cli/releases/download/v0.2.0/checksums.txt
 sha256sum -c checksums.txt --ignore-missing
 ```
 
@@ -78,7 +78,7 @@ go build -o plaud ./cmd/plaud
 ./plaud --version
 ```
 
-Building from source produces a binary that prints `plaud version 0.1.0-dev` (the development version string) unless you build with the same `-ldflags` GoReleaser uses.
+Building from source produces a binary that prints `plaud version 0.x.y-dev` (the development version string) unless you build with the same `-ldflags` GoReleaser uses.
 
 ## What's next
 

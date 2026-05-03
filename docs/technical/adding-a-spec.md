@@ -37,8 +37,9 @@ User-visible behavior (new commands, new errors, install flow changes) → `docs
 
 ## Where to look for examples
 
-- [`specs/0001-auth-and-list/`](../../specs/0001-auth-and-list/): the v0.1.0 spec, in `Active` (released, awaiting cross-platform smoke).
-- [`specs/0002-download-recordings/`](../../specs/0002-download-recordings/): a representative `Draft` for a feature spec.
+- [`specs/0001-auth-and-list/`](../../specs/0001-auth-and-list/): the v0.1.0 spec. `Active` (released, awaiting cross-platform smoke).
+- [`specs/0002-download-recordings/`](../../specs/0002-download-recordings/): a representative shipped feature spec (`download`, v0.2.0).
+- [`specs/0003-sync/`](../../specs/0003-sync/): `Active` with implementation in `main`. Worth reading as a real example of how the `/grill-me` workflow took an early draft from "single state file with hashes" to a layered minimal-index design, plus the spec rewrite captured in `notes.md`.
 - [`specs/0005-help-and-discoverability/`](../../specs/0005-help-and-discoverability/): a `Draft` that is more text-content than code.
 
-If you're unsure about scope, look at how 0001 trimmed itself down from an early draft that included download / sync / prompt composition into a v0.1 that did just login + list + logout. Smaller specs ship.
+If you're unsure about scope, look at how 0001 trimmed itself down from an early draft that included download / sync / prompt composition into a v0.1 that did just login + list + logout. Smaller specs ship. Spec 0003's grilling pass is another good model: a one-pager `Draft` ballooned to 16 FRs only after walking each branch of the design tree, and three of them (Probe A, the flock spike, the redact module) were captured as preconditions rather than crammed into the spec body.

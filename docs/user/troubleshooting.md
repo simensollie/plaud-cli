@@ -69,6 +69,72 @@ The CLI talks to two hosts only:
 
 No third-party telemetry, no analytics, no LLM provider. The token never leaves your machine via this binary except in the `Authorization: bearer ...` header on the requests above.
 
+## "plaud sync is already running on this archive root (PID X, ...)"
+
+Another `plaud sync` (or a watch-mode cycle) holds the per-archive lock. The message names the holder's `pid`, `hostname`, and `started_at`.
+
+**Fix (normal case):** wait for it to release. Watch mode acquires the lock per cycle and releases between cycles, so a manual `plaud sync` will succeed within one cycle.
+
+**Fix (lock looks stuck):** identify the holder process and check whether it's actually alive. On Linux/macOS, `flock` auto-releases on process death; on Windows, `LockFileEx` does too. If the holder PID matches your current host but the process is gone, the next sync run takes the lock automatically with a one-line stderr notice. If the PID doesn't exist on this host (e.g. the lock file is from a different machine sharing the archive over a network mount), you can manually delete `<archive_root>/.plaud-sync.lock`.
+
+## "A plaud sync watch loop is already active"
+
+A second `plaud sync --watch` against the same archive root. The first watcher's `pid`, `hostname`, and `started_at` are in the message.
+
+**Fix:** stop the first watch loop. If you're sure it's stale (e.g. you rebooted but the sentinel survived), delete `<archive_root>/.plaud-sync.watch`.
+
+This is intentionally an advisory check, not a hard lock — it catches accidental "I started watch in two terminals" footguns. Manual `plaud sync` invocations ignore the sentinel; only watch loops conflict.
+
+## "refusing to prune: server returned 0 recordings..." or "...M of N recordings missing (>50%)"
+
+Sync's mass-deletion guard. Fired because either the server reported zero recordings while your archive has some, or a single run would prune more than half the archive.
+
+**Why this exists:** an API outage or auth glitch could otherwise sweep your whole archive into `.trash/`. Recoverable, but startling.
+
+**Fix (intentional):** if you really did delete most of your account's recordings, pass `--prune-empty` to bypass:
+
+```bash
+plaud sync --prune --prune-empty
+```
+
+**Fix (unintentional):** investigate why the server returned a near-empty list. Re-run `plaud list` to confirm. Once the server response matches expectations, drop `--prune-empty`.
+
+## "rate limited (HTTP 429): retry budget exhausted"
+
+A single HTTP call hit 429 five times in a row, with exponential backoff (1s, 2s, 4s, 8s, 30s) between retries. Plaud is throttling.
+
+**Fix:** wait a few minutes; re-run. If you see this regularly, lower `--concurrency` (default 4):
+
+```bash
+plaud sync --concurrency 2
+```
+
+Watch mode counts a 429-exhausted recording as one of the 5 consecutive failed cycles before exiting. If your network is rate-limited consistently, drop the concurrency in your scheduler entry, not just on a single run.
+
+## "Watch loop has failed N cycles in a row. Last error: ..."
+
+Five consecutive failed cycles. Watch exited non-zero rather than keep crash-looping.
+
+**Fix:** read the redacted last error. Most common causes:
+
+- Network outage (Wi-Fi flake, VPN drop, sleep + wake).
+- Sustained 429 (back off via `--concurrency`).
+- Token expired mid-watch (re-run `plaud login`).
+- Plaud-side outage.
+
+Restart watch after fixing the root cause. For unattended scheduling, prefer cron / launchd / systemd (which retry on the next tick regardless) over a long-running `--watch`. See [`scheduling.md`](./scheduling.md).
+
+## My sync state file is corrupt
+
+`.plaud-sync.state` is an index into the archive, not the source of truth. If it's corrupt, malformed, or out of sync with reality, **delete it**. The next run rebuilds it from the surviving `metadata.json` files plus the list response.
+
+```bash
+rm <archive_root>/.plaud-sync.state
+plaud sync
+```
+
+You may see a single fresh-fetch cycle (sync re-asserts that every artifact in the include set is present) and then steady-state idempotency from the next run onward.
+
 ## I think I found a bug
 
 Check existing issues at https://github.com/simensollie/plaud-cli/issues, then open a new one. Include:

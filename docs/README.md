@@ -11,7 +11,10 @@ If you want to install plaud-cli and back up your Plaud.ai recordings:
 - [`user/commands/`](./user/commands/): reference per CLI subcommand.
   - [`login.md`](./user/commands/login.md)
   - [`list.md`](./user/commands/list.md)
+  - [`download.md`](./user/commands/download.md)
+  - [`sync.md`](./user/commands/sync.md)
   - [`logout.md`](./user/commands/logout.md)
+- [`user/scheduling.md`](./user/scheduling.md): run `plaud sync` unattended via cron / launchd / systemd / Task Scheduler.
 - [`user/troubleshooting.md`](./user/troubleshooting.md): common errors, what they mean, how to recover.
 
 ## For contributors
