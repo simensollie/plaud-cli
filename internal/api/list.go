@@ -12,10 +12,19 @@ import (
 
 const defaultListPageSize = 200
 
-// ErrUnauthorized indicates the bearer token was rejected (HTTP 401). The
-// CLI surfaces this as the spec's "Token expired or invalid. Run `plaud
-// login` again." message and exits non-zero without retry.
+// ErrUnauthorized indicates the bearer token was rejected. The CLI surfaces
+// this as the spec's "Token expired or invalid. Run `plaud login` again."
+// message and exits non-zero without retry. Plaud signals this two ways
+// depending on the endpoint: HTTP 401 (some legs), or HTTP 200 with an
+// envelope {status: apiStatusInvalidAuthHeader, msg: "invalid auth header"}.
+// Both shapes map to this sentinel.
 var ErrUnauthorized = errors.New("unauthorized: bearer token rejected")
+
+// apiStatusInvalidAuthHeader is the envelope status Plaud returns under HTTP
+// 200 when the bearer token is missing, malformed, or rejected. Empirically
+// observed against the real API (specs/0002-download-recordings/notes.md
+// 2026-05-03). Treated as equivalent to a 401 by the envelope handlers.
+const apiStatusInvalidAuthHeader = -3900
 
 // Recording is one item from /file/simple/web, normalized for callers.
 // The wire format uses epoch seconds; we hand callers time.Time / Duration
@@ -127,6 +136,9 @@ func (c *Client) List(ctx context.Context, opts ...listOption) ([]Recording, err
 		var page listResponse
 		if err := json.Unmarshal(body, &page); err != nil {
 			return nil, fmt.Errorf("decoding /file/simple/web: %w", err)
+		}
+		if page.Status == apiStatusInvalidAuthHeader {
+			return nil, ErrUnauthorized
 		}
 		if page.Status != 0 {
 			return nil, fmt.Errorf("%w: status=%d msg=%q", ErrAPIError, page.Status, page.Msg)

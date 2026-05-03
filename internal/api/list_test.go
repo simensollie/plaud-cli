@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -169,5 +170,31 @@ func TestList_F08_SurfacesUnauthorized(t *testing.T) {
 	// typed is reachable so the CLI can pattern-match.
 	if !isAuthError(err) {
 		t.Errorf("err = %v, want a 401-typed error", err)
+	}
+}
+
+// TestList_F10_EnvelopeInvalidAuthHeaderReturnsUnauthorized covers the real-API
+// auth-failure path: Plaud returns HTTP 200 with envelope
+// {status: -3900, msg: "invalid auth header"} for a rejected token, not the
+// 401 we mock elsewhere. F-10 requires this to surface as ErrUnauthorized so
+// the CLI's "Token expired or invalid. Run `plaud login` again." message
+// fires and the multi-ID worker pool cancels on the first occurrence.
+//
+// Spec: specs/0002-download-recordings/ F-10; notes.md 2026-05-03
+func TestList_F10_EnvelopeInvalidAuthHeaderReturnsUnauthorized(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":-3900,"msg":"invalid auth header","data_file_total":0,"data_file_list":[]}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(RegionUS, "tok", WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = c.List(context.Background())
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("err = %v, want errors.Is ErrUnauthorized", err)
 	}
 }

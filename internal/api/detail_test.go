@@ -508,3 +508,28 @@ func TestDetail_F10_NonZeroStatusReturnsAPIError(t *testing.T) {
 		t.Errorf("err = %v, want errors.Is ErrAPIError", err)
 	}
 }
+
+// TestDetail_F10_EnvelopeInvalidAuthHeaderReturnsUnauthorized covers the
+// real-API auth-failure path: Plaud returns HTTP 200 with envelope
+// {status: -3900, msg: "invalid auth header"} instead of HTTP 401. F-10
+// requires the same ErrUnauthorized sentinel either way so the CLI's
+// "Token expired or invalid" message and worker-pool cancellation fire.
+//
+// Spec: specs/0002-download-recordings/ F-10; notes.md 2026-05-03
+func TestDetail_F10_EnvelopeInvalidAuthHeaderReturnsUnauthorized(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":-3900,"msg":"invalid auth header","data":null}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(RegionEU, "tok", WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = c.Detail(context.Background(), "abc123")
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("err = %v, want errors.Is ErrUnauthorized", err)
+	}
+}

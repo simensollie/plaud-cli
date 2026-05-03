@@ -6,6 +6,29 @@ For the convention, see `specs/README.md`.
 
 ---
 
+## 2026-05-03: Plaud signals auth failure as envelope status -3900 under HTTP 200, not HTTP 401
+
+Discovered during the §8.8 smoke walk (token-rotation mid-run). With an invalid bearer, Plaud's API endpoints (`/file/simple/web`, `/file/detail/{id}`, `/file/temp-url/{id}`) return:
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"status":-3900,"msg":"invalid auth header","data":...}
+```
+
+This is the same shape as a successful response, just with a non-zero envelope status. Our existing F-10 handling only mapped HTTP 401 to `ErrUnauthorized`; the envelope-status-only path fell through to a generic `ErrAPIError`, so:
+- The actionable message ("Token expired or invalid. Run `plaud login` again.") never fired.
+- F-10's "cancel parent context, drop queued recordings" never fired either: every queued ID hit the same envelope error, surfaced its own per-recording line, and the run looked like five independent failures rather than one auth event.
+
+Fix landed in `internal/api/{list,detail,temp_url}.go`: a new package constant `apiStatusInvalidAuthHeader = -3900` is checked before the generic non-zero-status branch in each envelope handler, returning `ErrUnauthorized` instead. Three new tests (`TestList_F10_EnvelopeInvalidAuthHeaderReturnsUnauthorized`, equivalents for Detail and TempURL) lock this in.
+
+Status code -3900 is the only auth-failure code we have empirical evidence of so far. If a different code surfaces later (token-revoked vs. token-malformed vs. token-expired might be distinct in Plaud's enum), extend the constant or promote it to a small list. The design grilling section below ("Q4: file_md5 semantics") had assumed Plaud uses HTTP-level status codes for auth; that assumption is wrong for these endpoints.
+
+Pattern note: this is the second smoke-walk bug (after the GET-only signed URL above) where unit tests mocked the wire shape we *expected* and the real API used a different one. For spec 0003 (sync) and beyond, default-assume that any error path needs at least one real-account check before the spec can flip to Done.
+
+---
+
 ## 2026-05-03: Plaud's `temp_url` is signed for GET only; HEAD returns 403
 
 Discovered during the §8.2 smoke walk. The Phase 0 capture entry below claims HEAD against `temp_url` works; that was wrong. AWS SigV4 presigned URLs include the HTTP method in the canonical request, and Plaud's backend signs for `GET`, so `HEAD` against the same URL fails the signature check.

@@ -114,6 +114,9 @@ func (c *Client) Detail(ctx context.Context, id string) (*RecordingDetail, error
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("decoding /file/detail: %w", err)
 	}
+	if env.Status == apiStatusInvalidAuthHeader {
+		return nil, ErrUnauthorized
+	}
 	if env.Status != 0 {
 		return nil, fmt.Errorf("%w: status=%d msg=%q", ErrAPIError, env.Status, env.Msg)
 	}

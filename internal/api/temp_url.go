@@ -46,6 +46,9 @@ func (c *Client) TempURL(ctx context.Context, id string) (string, error) {
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return "", fmt.Errorf("decoding /file/temp-url: %w", err)
 	}
+	if payload.Status == apiStatusInvalidAuthHeader {
+		return "", ErrUnauthorized
+	}
 	if payload.Status != 0 {
 		return "", fmt.Errorf("%w: status=%d msg=%q", ErrAPIError, payload.Status, payload.Msg)
 	}
