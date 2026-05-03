@@ -6,6 +6,25 @@ For the convention, see `specs/README.md`.
 
 ---
 
+## 2026-05-03: Plaud's list endpoint server-side-filters trashed recordings
+
+Discovered during the §8.10 smoke walk. With one recording moved to trash via the web UI, querying `/file/simple/web?skip=0&limit=200`:
+
+- Filtering the response client-side for `id == <trashed-id>` returns an empty array.
+- Filtering for `is_trash == true` also returns an empty array.
+- Total `data_file_total` decreases by exactly one (35 → 34) while the recording is in trash.
+
+So Plaud's "list" endpoint never surfaces trashed recordings at all. The `is_trash` field on `Recording` (and the F-17 "trashed not reachable by prefix" outcome) are still meaningful, but for a different reason than a reader of the spec might assume:
+
+- **The detail endpoint (`/file/detail/{id}`) does return `is_trash: true` for a trashed recording.** Direct-ID downloads work and surface F-17's `"<id>: recording is trashed; downloading anyway"` warning correctly.
+- **Title-prefix resolution is automatically clean** because the list call returns the recording at all; no `if rec.IsTrash { skip }` guard is needed in `cmd/plaud/download.go`. Confirmed empirically: `plaud download "step response"` against a trashed-only matching title returned `Error: no recording matched "step response"`, exit 1.
+
+Implication for the next contributor: do not add a defensive `is_trash` filter to the prefix-matching path "just in case" — there is nothing to filter out. The `Recording.IsTrash` field stays useful for direct-ID flows (where detail is fetched directly) and as a sentinel if Plaud ever changes the list endpoint to include trashed records.
+
+This also closes one half of Q-trash from the Phase 0 capture (whether the list endpoint includes trashed records). It does not. The "include trash" parameter or alternate endpoint, if one exists, is out of scope for v0.2.
+
+---
+
 ## 2026-05-03: Plaud signals auth failure as envelope status -3900 under HTTP 200, not HTTP 401
 
 Discovered during the §8.8 smoke walk (token-rotation mid-run). With an invalid bearer, Plaud's API endpoints (`/file/simple/web`, `/file/detail/{id}`, `/file/temp-url/{id}`) return:
