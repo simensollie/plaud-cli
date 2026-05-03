@@ -30,6 +30,18 @@ Walked from a `main` build at commit `2115365` against a real account (region `e
 
 ---
 
+## Linux walk record (v0.2.0, 2026-05-03)
+
+Walked from the released `v0.2.0` linux/amd64 binary (downloaded from the GitHub release tarball) against the same EU account, on Arch Linux (kernel 6.19). The five OS-sensitive items (§8.1, §8.2, §8.3, §8.7, §8.11) passed. The OS-independent / wire-shape items (§8.4-§8.6, §8.8-§8.10) were not re-exercised on Linux; they are covered by the macOS walk per "OS-independent steps" below.
+
+No implementation bugs surfaced.
+
+§8.7 line endings verified explicitly: 0 CR bytes, 271 LF in `transcript.srt`. §8.11 sha256 byte-identical across the forced run, confirming deterministic `json` and `srt` renderers. §8.2 prefix resolution matched `04-30 readyware` to a single recording even with two other 04-30 entries in the account, exercising F-09's case-insensitive prefix path.
+
+Slug folding observation: `Læring og dokumentasjon, tilgangsroller, beredskapsgrupper og hendelseshåndtering` folded to `04_30_readyware_laering_og_dokumentasjon_tilgangsroller` (æ→ae, comma → `_`, truncated at a `_` boundary inside the last 10 chars of the 60-char cap).
+
+---
+
 ## Linux walk runbook
 
 ```bash
