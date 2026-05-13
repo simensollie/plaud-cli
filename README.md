@@ -1,5 +1,48 @@
 # plaud-cli
 
+> ## 🛑 Superseded by official Plaud tooling
+>
+> Plaud now ships both an **official CLI** and an **official MCP server** that cover almost everything this project does. **New users should start there.** This repo stays publicly available, but is in maintenance mode (see below).
+>
+> **Official CLI** ([docs](https://docs.plaud.ai/documentation/plaud_app/cli)):
+>
+> ```bash
+> npm install -g @plaud-ai/cli   # requires Node.js >= 20
+> ```
+>
+> Commands: `plaud login` / `logout` / `me`, `plaud files` / `recent` / `today` / `search`, `plaud file <id>`, `plaud audio <id>`, `plaud transcript <id> -o`, `plaud summary <id> -o`.
+>
+> **Official MCP server** ([docs](https://docs.plaud.ai/documentation/plaud_app/mcp)) for Claude Code, Claude Desktop, Cursor, VS Code, Zed, ChatGPT, etc.:
+>
+> ```bash
+> npx -y @plaud-ai/mcp@latest install
+> ```
+>
+> **⚠ Binary name collision.** Plaud's official CLI installs a binary called `plaud`, the same name this project uses. Do not install both on the same `PATH`. If you are migrating, `rm` (or rename) this project's binary first.
+>
+> ### Command mapping
+>
+> | This project | Official replacement |
+> |---|---|
+> | `plaud login` | `plaud login` (official) |
+> | `plaud logout` | `plaud logout` (official) |
+> | `plaud list` | `plaud files` (or `recent`, `today`, `search`) |
+> | `plaud download <id>` | `plaud transcript <id> -o`, `plaud summary <id> -o`, `plaud audio <id>` |
+> | `plaud sync` | **No official equivalent yet.** |
+>
+> ### The one niche this tool still covers
+>
+> The official CLI deliberately omits bulk operations: no `sync`, no `--watch`, no prune, no on-disk archive layout, and `search` is capped at the most recent ~500 recordings. Audio is served via 24-hour presigned URLs, so building a long-lived offline archive against the official CLI means scripting your own downloader on top of it.
+>
+> If you need a **scheduled, file-on-disk archive** of every recording (audio + transcript + summary) in a stable `YYYY/MM/<slug>/` layout (e.g. for GDPR data portability, compliance retention, or feeding a non-MCP pipeline), `plaud sync` is still the simplest path. For everything else, switch to the official tools.
+>
+> ### Maintenance posture
+>
+> - The repo stays public and the binaries stay downloadable.
+> - **No new features.** v0.3.0 acceptance will land; no new specs will be opened.
+> - Security fixes and Plaud-API breakage fixes will be considered on a best-effort basis.
+> - Issues and PRs may be triaged slowly. If your problem is something the [official CLI](https://docs.plaud.ai/documentation/plaud_app/cli) or [MCP](https://docs.plaud.ai/documentation/plaud_app/mcp) can solve, please use those instead.
+
 > ## ⚠ Unofficial community tool
 >
 > **plaud-cli is NOT affiliated with, endorsed by, sponsored by, or connected to PLAUD LLC.**
@@ -17,16 +60,19 @@ A small, single-binary CLI for archiving recordings, transcripts, and summaries 
 | **v0.1.0** | `login`, `list`, `logout` | Released (2026-05-01) |
 | **v0.2.0** | `download` (transcripts, summaries, audio per recording) | Released |
 | **v0.3.0** | `sync` (mirror your whole account, watch mode, prune) | Implemented in `main`; pending acceptance walk |
+| **Project** | Further development | **Maintenance mode.** Superseded by the [official Plaud CLI](https://docs.plaud.ai/documentation/plaud_app/cli) and [MCP server](https://docs.plaud.ai/documentation/plaud_app/mcp). |
 
 Releases: https://github.com/simensollie/plaud-cli/releases
 
-The roadmap and active specs live in [`specs/`](./specs/).
+The roadmap and active specs live in [`specs/`](./specs/). No new specs will be opened.
 
-## Why
+## Why (historical)
 
-Plaud.ai stores your recordings, transcripts, and summaries in their cloud only. There is no sanctioned way to bulk-export or maintain a local archive. This tool fills that gap by talking to the Plaud web/mobile API with your own credentials and writing your data to disk in a format you control.
+Plaud.ai used to store your recordings, transcripts, and summaries in their cloud only. There was no sanctioned way to bulk-export or maintain a local archive. This tool filled that gap by talking to the Plaud web/mobile API with your own credentials and writing your data to disk in a format you control.
 
-The official partner Developer Platform (`docs.plaud.ai`) is for B2B integrations and does not currently expose end-user data; the companion OAuth API is in private beta. Until those land, this tool uses the same endpoints the consumer web app uses. Expect occasional breakage when Plaud changes their API.
+**That gap is now largely closed.** Plaud's [official MCP server](https://docs.plaud.ai/documentation/plaud_app/mcp) exposes recordings, transcripts, AI-notes, and presigned audio URLs to any MCP-compatible client. If you want conversational access to your Plaud data from Claude Code, Cursor, ChatGPT, etc., use that.
+
+This tool remains useful only if you need a **file-on-disk archive** of every recording (audio + transcript + summary) in a deterministic directory layout, refreshed on a schedule, without a running AI client. Plaud's MCP does not currently offer that.
 
 ## Get started
 
